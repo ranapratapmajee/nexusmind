@@ -9,30 +9,27 @@ def format_mode_label(mode: str) -> str:
     return "✨ Nexa Chat"
 
 
-def get_enabled_models(model_catalog: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Safely filters active engines out of your centralized discovery catalog arrays."""
+def get_enabled_models(model_catalog: List[str]) -> List[str]:
+    """Pass-through validation to filter models. (Catalog is now a flat string list)."""
     if not model_catalog:
         return []
-    return [m for m in model_catalog if m.get("enabled", True)]
+    return model_catalog
 
 
-def get_model_label_map(enabled_models: List[Dict[str, Any]]) -> Dict[str, str]:
+def get_model_label_map(enabled_models: List[str]) -> Dict[str, str]:
     """Appends environment infrastructure tags cleanly to populate selection items."""
     label_map = {}
     label_map["auto"] = "🤖 Auto Resolver"
 
-    for model in enabled_models:
-        m_id = model.get("id")
+    for m_id in enabled_models:
         if not m_id or m_id == "auto":
             continue
 
-        provider = model.get("provider", "").lower()
-        label = model.get("label", m_id)
-
-        # Dynamic tags inform you instantly whether compute layers run locally or in the cloud
-        if provider in ["gemini", "google", "openai", "anthropic"]:
-            label_map[m_id] = f"☁️ {label}"
+        lower_id = m_id.lower()
+        # 🟢 Intelligently detect cloud vs local providers using flat string identifiers
+        if any(cloud_p in lower_id for cloud_p in ["gemini", "google", "openai", "anthropic"]):
+            label_map[m_id] = f"☁️ {m_id}"
         else:
-            label_map[m_id] = f"💻 {label}"
+            label_map[m_id] = f"💻 {m_id}"
 
     return label_map

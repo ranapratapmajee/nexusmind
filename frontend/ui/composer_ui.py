@@ -1,6 +1,6 @@
 # path: frontend/ui/composer_ui.py
-from typing import Any, Dict
 
+from typing import Any, Dict
 import requests
 import streamlit as st
 from ui.api_client import call_backend
@@ -8,8 +8,7 @@ from ui.formatters import get_enabled_models, get_model_label_map
 
 
 def render_composer() -> None:
-    """Renders a simplified floating macro control bar and native chat input element."""
-    # Pull valid modes synced straight from the backend discovery schema
+    """Renders a simplified floating control bar and native chat input element."""
     modes = st.session_state.get("available_modes", ["chat", "deep_research"])
     enabled_models = get_enabled_models(st.session_state.model_catalog)
     model_label_map = get_model_label_map(enabled_models)
@@ -27,12 +26,8 @@ def render_composer() -> None:
             selected_mode = st.pills(
                 "Mode Selector",
                 options=modes,
-                default=st.session_state.selected_mode
-                if st.session_state.selected_mode in modes
-                else "chat",
-                format_func=lambda x: (
-                    "✨ Nexa Chat" if x == "chat" else "🔬 Deep Research"
-                ),
+                default=st.session_state.selected_mode if st.session_state.selected_mode in modes else "chat",
+                format_func=lambda x: "✨ Nexa Chat" if x == "chat" else "🔬 Deep Research",
                 selection_mode="single",
                 label_visibility="collapsed",
                 key="pills_mode_selector",
@@ -72,13 +67,14 @@ def render_composer() -> None:
 
 
 def process_pending_request() -> None:
-    """Orchestrates backend network payload transmission requests and updates historical states."""
+    """Orchestrates network payload transmissions and updates local historical state keys."""
     pending = st.session_state.pending_request
     if not pending:
         return
 
     reply = ""
-    trace_data: Dict[str, Any] = {}
+    trace_logs = []
+    metrics = {}
 
     with st.spinner("Nexa is analyzing request pipeline..."):
         try:
@@ -90,59 +86,28 @@ def process_pending_request() -> None:
                 mode=pending["mode"],
             )
             reply = result.get("reply", "")
-            trace_data = result.get("trace", {}) or {}
+            trace_logs = result.get("trace_logs", [])
+            metrics = result.get("metrics", {})
 
         except requests.exceptions.RequestException as e:
             reply = f"I couldn't reach the backend server pipeline endpoint. Ensure your server is live.\n\nError: `{e}`"
-            # Build an error telemetry fallback state block so trace_ui still renders a clean diagnosis map
-            trace_data = {
-                "route": pending["mode"].upper(),
-                "mode": "⚠️ Network Fault",
-                "model": pending["model_id"],
-                "tier": "Local Fallback",
-                "pipeline_trace_history": [
-                    {
-                        "step": 1,
-                        "status": "🟢",
-                        "node_name": "User Request Entry",
-                        "message": "Payload Ingested",
-                    },
-                    {
-                        "step": 2,
-                        "status": "🔴",
-                        "node_name": "FastAPI Network Bridge",
-                        "message": "Connection Timed Out: Endpoint Unreachable",
-                    },
-                ],
-            }
+            trace_logs = [
+                {"step_number": 1, "execution_status": "🟢", "node_identifier": "User Request Entry", "telemetry_message": "Payload Ingested"},
+                {"step_number": 2, "execution_status": "🔴", "node_identifier": "FastAPI Network Bridge", "telemetry_message": "Connection Timed Out: Endpoint Unreachable"}
+            ]
         except Exception as e:
             reply = f"System Processing Failure: `{e}`"
-            trace_data = {
-                "route": pending["mode"].upper(),
-                "mode": "🚨 Fatal Exception",
-                "model": pending["model_id"],
-                "tier": "Core Intercept",
-                "pipeline_trace_history": [
-                    {
-                        "step": 1,
-                        "status": "🟢",
-                        "node_name": "User Request Entry",
-                        "message": "Payload Ingested",
-                    },
-                    {
-                        "step": 2,
-                        "status": "🔴",
-                        "node_name": "Runtime Error Intercept",
-                        "message": f"Exception raised: {str(e)[:40]}",
-                    },
-                ],
-            }
+            trace_logs = [
+                {"step_number": 1, "execution_status": "🟢", "node_identifier": "User Request Entry", "telemetry_message": "Payload Ingested"},
+                {"step_number": 2, "execution_status": "🔴", "node_identifier": "Runtime Error Intercept", "telemetry_message": f"Exception raised: {str(e)[:40]}"}
+            ]
 
     st.session_state.messages.append(
         {
             "role": "assistant",
             "content": reply,
-            "trace": trace_data,
+            "trace_logs": trace_logs,
+            "metrics": metrics,
         }
     )
     st.session_state.pending_request = None

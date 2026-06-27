@@ -4,14 +4,14 @@
         "name": "Standard Utility & Casual Greetings",
         "query": "hi, clear the context and let's run a baseline test.",
         "source_type": "HEURISTIC_BYPASS",
-        "expected_route": "CHAT",
-        "expected_tier": "Standard Stream",
+        "expected_route": "direct_llm",
+        "expected_tier": "LOW",
         "expected_tools": [
             "regex_guardrails"
         ],
         "forbidden_tools": [
-            "chroma_retriever",
-            "web_search",
+            "chroma_search_tool",
+            "web_search_tool",
             "query_expansion_engine"
         ],
         "anchor_tokens": [],
@@ -22,8 +22,8 @@
         "name": "Socratic Persona Trigger",
         "query": "Explain the mathematical difference between L1 and L2 regularization.",
         "source_type": "SOCRATIC_COACH",
-        "expected_route": "DEEP_RESEARCH",
-        "expected_tier": "Standard Stream",
+        "expected_route": "research",
+        "expected_tier": "HIGH",
         "expected_tools": [],
         "forbidden_tools": [],
         "anchor_tokens": [
@@ -37,8 +37,8 @@
         "name": "Pure Local RAG Manual Grounding",
         "query": "What are the core stages of Retrieval-Augmented Generation outlined in Abhinav Kimothi's July 2025 guide?",
         "source_type": "LOCAL_RAG",
-        "expected_route": "DEEP_RESEARCH",
-        "expected_tier": "Standard Stream",
+        "expected_route": "research",
+        "expected_tier": "HIGH",
         "expected_tools": [],
         "forbidden_tools": [],
         "anchor_tokens": [
@@ -52,8 +52,8 @@
         "name": "Pure Live Web Scrape Evaluation",
         "query": "What are the core updates announced in the latest stable version of LangGraph released this year?",
         "source_type": "LIVE_WEB",
-        "expected_route": "DEEP_RESEARCH",
-        "expected_tier": "Standard Stream",
+        "expected_route": "research",
+        "expected_tier": "HIGH",
         "expected_tools": [],
         "forbidden_tools": [],
         "anchor_tokens": [
@@ -67,8 +67,8 @@
         "name": "Autonomous Deep Research Escalation",
         "query": "Provide a full breakdown and compare architecture differences between ChromaDB and a standard SQL database cluster.",
         "source_type": "HYBRID_CORE",
-        "expected_route": "DEEP_RESEARCH",
-        "expected_tier": "Standard Stream",
+        "expected_route": "research",
+        "expected_tier": "HIGH",
         "expected_tools": [],
         "forbidden_tools": [],
         "anchor_tokens": [

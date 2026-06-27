@@ -32,28 +32,22 @@ def render_chat_messages() -> None:
         role = msg.get("role", "user")
         content = msg.get("content", "")
 
-        # Pull raw trace dictionary stream
-        trace = msg.get("trace", {}) or {}
+        # 🟢 Extract aligned list and dictionary schema blocks directly out of the state row
+        trace_logs = msg.get("trace_logs", [])
+        metrics = msg.get("metrics", {})
 
         # 1. Render primary chat element natively
         with st.chat_message(role):
             st.markdown(content)
 
         # 2. Render trace block aligned with the chat bubble box bounds
-        if role == "assistant" and trace:
-            # Create an explicit asymmetric layout grid column array.
-            trace_col, spacer_col = st.columns([0.84, 0.16])
+        if role == "assistant" and trace_logs:
+            trace_col, _ = st.columns([0.84, 0.16])
 
             with trace_col:
                 st.markdown(
                     "<div style='margin-top: -12px; margin-bottom: 16px;'></div>",
                     unsafe_allow_html=True,
                 )
-
-                # 🎯 CLEAN CENTRALIZED HANDSHAKE:
-                # Read the array directly out of the unified telemetry payload.
-                # If the backend omitted it or it's empty, fall back safely.
-                pipeline_history = trace.get("pipeline_trace_history", [])
-
-                # Render the clean execution tree panel
-                render_trace(trace=trace, pipeline_trace_history=pipeline_history)
+                # Render the clean, unified native execution tree panel directly
+                render_trace(trace_logs=trace_logs, metrics=metrics)

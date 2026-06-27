@@ -1,16 +1,11 @@
 # path: frontend/ui/api_client.py
-from typing import Any, Dict, Tuple
 
+from typing import Any, Dict, Tuple
 import requests
 import streamlit as st
 
-
 def check_backend_status(backend_url: str) -> Tuple[bool, str]:
-    """
-    Pings health check endpoints to assess backend connectivity availability status.
-    Cleans up legacy nested candidate loops to map directly onto the backend schema.
-    """
-    # Standardize to find the core server health route natively
+    """Pings health check endpoints to assess backend connectivity status."""
     base_url = backend_url.rstrip("/")
     if base_url.endswith("/api"):
         health_url = base_url.replace("/api", "/health")
@@ -28,7 +23,7 @@ def check_backend_status(backend_url: str) -> Tuple[bool, str]:
 
 
 def fetch_chat_options(backend_url: str) -> Dict[str, Any]:
-    """Queries configuration schema parameters from the core FastAPI gateway server."""
+    """Queries configuration parameters from the core FastAPI gateway server."""
     url = f"{backend_url.rstrip('/')}/api/chat/options"
     try:
         resp = requests.get(url, timeout=10)
@@ -39,7 +34,7 @@ def fetch_chat_options(backend_url: str) -> Dict[str, Any]:
             "default_model_id": data.get("default_model_id", "auto"),
             "default_mode": data.get("default_mode", "chat"),
             "available_modes": data.get("available_modes", ["chat", "deep_research"]),
-            "models": data.get("models", []),
+            "available_models": data.get("available_models", []),
         }
     except Exception as e:
         raise RuntimeError(f"Failed parsing configuration parameters map: {e}")
@@ -52,10 +47,8 @@ def ensure_chat_options_loaded() -> None:
 
     try:
         options = fetch_chat_options(st.session_state.backend_url)
-        st.session_state.available_modes = options.get(
-            "available_modes", ["chat", "deep_research"]
-        )
-        st.session_state.model_catalog = options.get("models", [])
+        st.session_state.available_modes = options.get("available_modes", ["chat", "deep_research"])
+        st.session_state.model_catalog = options.get("available_models", [])
 
         default_mode = options.get("default_mode", "chat")
         default_model_id = options.get("default_model_id", "auto")
@@ -63,8 +56,7 @@ def ensure_chat_options_loaded() -> None:
         if st.session_state.selected_mode not in st.session_state.available_modes:
             st.session_state.selected_mode = default_mode
 
-        model_ids = {m.get("id") for m in st.session_state.model_catalog if m.get("id")}
-        if st.session_state.selected_model_id not in model_ids:
+        if st.session_state.selected_model_id not in st.session_state.model_catalog and st.session_state.selected_model_id != "auto":
             st.session_state.selected_model_id = default_model_id
 
         st.session_state.composer_model = st.session_state.selected_model_id
@@ -92,9 +84,7 @@ def call_backend(
     model_id: str,
     mode: str,
 ) -> Dict[str, Any]:
-    """
-    Executes a direct post block request to the unified routing network endpoint.
-    """
+    """Executes a POST request to the unified routing network endpoint."""
     url = f"{backend_url.rstrip('/')}/api/chat"
     payload = {
         "session_id": session_id,
@@ -104,41 +94,39 @@ def call_backend(
     }
 
     try:
-        # Timeout configured generously for deep agentic research iterations
         resp = requests.post(url, json=payload, timeout=300)
         resp.raise_for_status()
         data = resp.json()
 
         return {
-            "reply": data.get(
-                "reply", "Sorry, I did not receive a valid response block."
-            ),
-            "trace": data.get("trace", {}) or {},
+            "reply": data.get("reply", "Sorry, I did not receive a valid response block."),
+            "trace_logs": data.get("trace_logs", []),
+            "metrics": data.get("metrics", {})
         }
     except requests.exceptions.Timeout:
         return {
-            "reply": "⚠️ **The backend system processing lifecycle timed out.**\n\nYour deep research or reasoning query exceeded the maximum generation window bound constraint limits (300 seconds). Check backend logs for server tracking loops.",
-            "trace": {},
+            "reply": "⚠️ **The backend system processing lifecycle timed out.**\n\nYour deep research or reasoning query exceeded the maximum generation window constraint limit (300 seconds).",
+            "trace_logs": [],
+            "metrics": {},
         }
     except requests.exceptions.ConnectionError:
         return {
-            "reply": "❌ **Network Gateway Connection Error.**\n\nNexa couldn't establish a socket mapping connection route with the FastAPI gateway. Is your local port instance active?",
-            "trace": {},
+            "reply": "❌ **Network Gateway Connection Error.**\n\nNexa couldn't establish a socket mapping connection route with the FastAPI gateway.",
+            "trace_logs": [],
+            "metrics": {},
         }
     except Exception as e:
         return {
             "reply": f"💥 **An unexpected processing failure occurred:** `{str(e)}`",
-            "trace": {},
+            "trace_logs": [],
+            "metrics": {},
         }
 
 
 def upload_document_stream(backend_url: str, uploaded_file) -> Dict[str, Any]:
-    """
-    Transmits a raw file binary buffer payload straight to the backend RAG pipeline.
-    """
+    """Transmits a raw file binary buffer payload to the background RAG pipeline."""
     url = f"{backend_url.rstrip('/')}/api/rag/upload"
     try:
-        # Convert Streamlit upload object cleanly into standard multipart stream requests tuples
         files = {
             "file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
         }
