@@ -10,6 +10,87 @@ Nexa Mind is an enterprise-grade, high-density AI engineering assistant platform
 
 Nexa Mind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit layout UI, the robust FastAPI communication layer, Docker Desktop background infrastructure, and local execution threads is fully outlined below:
 
+## 🏗️ System Architecture Flow
+
+The interaction between the high-density Streamlit user interface canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
+
+```mermaid
+graph TD
+    %% Styling Configuration Profiles
+    classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:2px,color:#F8FAFC;
+    classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#F1F5F9;
+    classDef graph fill:#312E81,stroke:#818CF8,stroke-width:1px,color:#E2E8F0;
+    classDef infra fill:#064E3B,stroke:#34D399,stroke-width:2px,color:#ECFDF5;
+
+    %% Presentation Layer
+    subgraph Streamlit_Frontend [Streamlit Presentation Workspace :8501]
+        UI[Canvas Layout: streamlit_app.py]
+        Composer[Control Matrix: composer_ui.py]
+        Console[APM Visualizer: trace_ui.py]
+    end
+    class UI,Composer,Console ui;
+
+    %% Communication Gateway Layer
+    subgraph FastAPI_Backend [FastAPI Application Gateway :8001]
+        Router[API Endpoint Route: /api/chat]
+        Schemas[Data Contracts Validation: schemas.py]
+    end
+    class Router,Schemas api;
+
+    %% Orchestration Graph Layer
+    subgraph LangGraph_Engine [Core Graph State Machine Grid]
+        CoreGraph[Master Orchestrator: core_graph.py]
+        GovNode[Edge Interceptor Node: governance_node]
+        RouteNode[Intent Classifier Node: router_node]
+        FastNode[Fast Local Path Node: fast_conversational_node]
+        
+        subgraph SubAgent_Network [Independent Research Subgraph]
+            ResearchGraph[Research Topology: research_graph.py]
+            GatherNode[Data Discovery Node: gather_sources_node]
+            SynthNode[Citation Synthesizer Node: synthesize_research_node]
+        end
+    end
+    class CoreGraph,GovNode,RouteNode,FastNode,ResearchGraph,GatherNode,SynthNode graph;
+
+    %% Underpinning Infrastructure Layer
+    subgraph Compute_And_Storage [Inference Infrastructure & Context Data Space]
+        OllamaCompletions[Local Ollama: qwen2.5-coder:7b :11434]
+        ChromaDB[Docker Desktop Sandbox: ChromaDB Vector Space :8000]
+        WebScrape[Async Scraper Subsystem: trafilatura engine]
+        GeminiCloud[Cloud Edge Cloud API: gemini-2.5-flash]
+    end
+    class OllamaCompletions,ChromaDB,WebScrape,GeminiCloud infra;
+
+    %% Data Pipeline Interaction Lines
+    UI -->|1. Submit User Query| Composer
+    Composer -->|2. HTTP POST Payload ChatRequest| Router
+    Router -->|3. Initialize GlobalState & .ainvoke| CoreGraph
+    
+    CoreGraph --> GovNode
+    GovNode -->|4. Regex Guardrails & PII Masking Pass| RouteNode
+    
+    %% Conditional Branching Elements
+    RouteNode -->|5a. Heuristic Low Complexity Routing Route| FastNode
+    RouteNode -->|5b. Deep Research Dynamic Path Check| ResearchGraph
+    
+    %% Compute Integrations
+    FastNode -->|6. Direct Generation Handshake| OllamaCompletions
+    
+    ResearchGraph --> GatherNode
+    GatherNode -->|7a. Vector Proximity Query| ChromaDB
+    GatherNode -->|7b. Multiquery Fallback Scrape| WebScrape
+    GatherNode --> SynthNode
+    SynthNode -->|8. Grounded Context Synthesis Pass| GeminiCloud
+    
+    %% Response Aggregation and State Pipeline Returns
+    FastNode -->|9a. Return State Payload Array| Router
+    SynthNode -->|9b. Return Mutated State Payload Array| Router
+    
+    Router -->|10. Yield JSON Formatted ChatResponse| Console
+    Console -->|11. Render Message Bubble & Trace Expander Ledger| UI
+
+```
+
 ### 1. Unified Sequence Flow
 
 ```mermaid
