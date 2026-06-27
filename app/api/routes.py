@@ -2,71 +2,93 @@
 
 import os
 import re
+import json
 import shutil
+import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage
+
 from app.settings import settings
 from app.core_graph import get_master_graph
-from app.state_models import GlobalState
-from app.api.schemas import ChatOptionsResponse, ChatRequest, ChatResponse
-from app.rag_storage import run_ingest  # 🟢 Import the unified ingest workflow tool
+from app.state_models import GlobalState, ChatPathSelection, ModelTierSelection
+from app.api.schemas import ChatOptionsResponse, ChatRequest
+from app.rag_storage import run_ingest
 
+logger = logging.getLogger("nexusmind.routes")
 router = APIRouter(prefix="/api", tags=["chat"])
 master_graph = get_master_graph()
 
 @router.get("/chat/options", response_model=ChatOptionsResponse)
 async def get_chat_options() -> ChatOptionsResponse:
     return ChatOptionsResponse(
-        default_model_id=settings.OLLAMA_MODEL,
-        default_mode="chat",
-        available_modes=["chat", "deep_research"],
-        available_models=[settings.OLLAMA_MODEL, settings.GEMINI_MODEL]
+        default_chat_selection=ChatPathSelection.AUTO,
+        default_model_selection=ModelTierSelection.AUTO,
+        available_chat_paths=[e.value for e in ChatPathSelection],
+        available_model_tiers=[e.value for e in ModelTierSelection]
     )
 
-@router.post("/chat", response_model=ChatResponse)
-async def handle_chat_message(req: ChatRequest) -> ChatResponse:
+@router.post("/chat")
+async def handle_chat_message_stream(req: ChatRequest):
+    """🚀 Upgraded: Streams token deltas and metrics directly without trace leakage."""
+    
     initial_state = GlobalState(
-        session_id=req.session_id,
         raw_user_query=req.message,
-        ui_requested_mode=req.mode,
-        allocated_model_id=req.model_id if req.model_id != "auto" else settings.OLLAMA_MODEL
+        pipeline_context={
+            "chat_selection": req.chat_selection,
+            "model_selection": req.model_selection
+        }
     )
-    try:
-        output_dict = await master_graph.ainvoke(initial_state)
-        return ChatResponse(
-            reply=output_dict.get("final_assistant_reply", ""),
-            trace_logs=output_dict.get("chronological_trace_logs", []),
-            metrics=output_dict.get("performance_metrics_ms", {})
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Graph Processing Fault: {str(e)}")
+    graph_config = {"configurable": {"thread_id": req.session_id}}
 
+    async def event_generator():
+        try:
+            async for event in master_graph.astream_events(initial_state, graph_config, version="v2"):
+                kind = event.get("event")
+                metadata = event.get("metadata", {})
+                active_node = metadata.get("langgraph_node")
+                
+                # Case A: Metrics Tracking Profile
+                if kind == "on_chain_end" and event.get("name") == "LangGraph":
+                    final_output = event["data"].get("output", {})
+                    metrics = final_output.get("performance_metrics_ms", {})
+                    yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
+
+                # Case B: Conversational Token Streams Only
+                elif kind == "on_chat_model_stream":
+                    # 🟢 FILTER OUT STRUCTURAL NODES NATIVELY:
+                    # Only stream tokens from final conversational or research synthesis steps.
+                    # This prevents governance or routing JSON structures from leaking.
+                    if active_node in ["fast_conversational", "execute_research_subgraph", "synthesize_research"]:
+                        token_chunk = event["data"].get("chunk")
+                        if token_chunk and token_chunk.content:
+                            yield f"data: {json.dumps({'type': 'token', 'delta': token_chunk.content})}\n\n"
+
+            yield "data: [DONE]\n\n"
+            
+        except Exception as graph_err:
+            logger.error(f"Streaming sequence error: {graph_err}")
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(graph_err)})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.post("/rag/upload", tags=["rag"])
 async def stream_rag_upload(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """
-    Receives engineering source documents, flushes them to disk registers inside 
-    the configured file folder space, and boots the async vector processing pipelines.
-    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Transmission rejected: Missing proper filename metadata payload.")
 
-    # 1. Resolve targeting folder layout parameters (Resolves to your configuration path e.g., './data')
     target_dir = os.path.abspath(settings.OFFLINE_PDF_DIR)
     os.makedirs(target_dir, exist_ok=True)
 
-    # Sanitize inputs to guarantee zero path traversal vulnerabilities
     safe_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", file.filename)
     file_path = os.path.join(target_dir, safe_filename)
 
-    # 2. Write incoming streaming chunks from memory directly onto target disk space
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Hardware file writing fault execution error: {str(e)}")
 
-    # 3. 🟢 LINK TO INGEST PIPELINE: Hand the file path straight down to the background process
-    # The server responds instantly to the Streamlit sidebar, keeping the UI snappy
     background_tasks.add_task(run_ingest, file_path)
 
     return {

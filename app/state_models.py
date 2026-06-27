@@ -1,25 +1,46 @@
+# path: app/state_models.py
+
 import operator
+from enum import Enum
 from typing import Annotated, Any, Dict, List
 from pydantic import BaseModel, Field
+from langchain_core.messages import AnyMessage
+from langgraph.graph.message import add_messages
 
-class PipelineTraceLog(BaseModel):
-    step_number: int
-    execution_status: str = "🟢"
-    node_identifier: str
-    telemetry_message: str
+# =========================================================================
+# 🎛️ 1. OPERATIONAL UNIFIED ENUMS
+# =========================================================================
+
+class ChatPathSelection(str, Enum):
+    NEXA_CHAT = "NEXA_CHAT"
+    RESEARCH = "RESEARCH"
+    AUTO = "AUTO"
+
+class ModelTierSelection(str, Enum):
+    LOCAL = "LOCAL"
+    CLOUD = "CLOUD"
+    AUTO = "AUTO"
+
+# =========================================================================
+# 🧠 2. STATE GRAPH SCHEMA STRUCTURE
+# =========================================================================
 
 class GlobalState(BaseModel):
-    session_id: str = "default"
+    """🌊 Pure, high-density data synchronization pipeline state layer."""
     raw_user_query: str = ""
-    sanitized_user_query: str = ""
-    ui_requested_mode: str = "chat"
-    target_pipeline_key: str = "direct_llm"
-    routing_compute_tier: str = "LOW"
-    dynamic_persona_mode: str = "standard_utility"
-    allocated_model_id: str = "auto"
-    final_assistant_reply: str = ""
-    pipeline_context: Dict[str, Any] = Field(default_factory=dict)
+    forward_query: str = ""
     
-    # 🟢 LangGraph automatically channels and appends to this list natively
-    chronological_trace_logs: Annotated[List[PipelineTraceLog], operator.add] = Field(default_factory=list)
-    performance_metrics_ms: Dict[str, int] = Field(default_factory=dict)
+    # Core internal node orchestration targets
+    target_pipeline_key: ChatPathSelection = ChatPathSelection.NEXA_CHAT
+    allocated_model_tier: ModelTierSelection = ModelTierSelection.LOCAL
+    
+    # SAFETY HALT CONTROL: True if the query passed guardrails, False if blocked
+    guardrails_passed: bool = True
+    final_assistant_reply: str = ""
+    
+    # LangGraph Automatic Channel Merging Channels
+    messages: Annotated[List[AnyMessage], add_messages] = Field(default_factory=list)
+    pipeline_context: Annotated[Dict[str, Any], operator.or_] = Field(default_factory=dict)
+    
+    # 🟢 FIX: Changed default_factory from list to dict to resolve the unsupported operand error
+    performance_metrics_ms: Annotated[Dict[str, int], operator.or_] = Field(default_factory=dict)

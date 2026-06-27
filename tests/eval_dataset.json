@@ -3,79 +3,63 @@
         "id": "TC-HEUR-001",
         "name": "Standard Utility & Casual Greetings",
         "query": "hi, clear the context and let's run a baseline test.",
-        "source_type": "HEURISTIC_BYPASS",
-        "expected_route": "direct_llm",
-        "expected_tier": "LOW",
-        "expected_tools": [
-            "regex_guardrails"
-        ],
-        "forbidden_tools": [
-            "chroma_search_tool",
-            "web_search_tool",
-            "query_expansion_engine"
-        ],
-        "anchor_tokens": [],
-        "mode": "chat"
+        "chat_selection": "NEXA_CHAT",
+        "model_selection": "LOCAL",
+        "expected_route": "NEXA_CHAT",
+        "expected_tier": "LOCAL",
+        "anchor_tokens": []
     },
     {
         "id": "TC-SOCR-002",
         "name": "Socratic Persona Trigger",
         "query": "Explain the mathematical difference between L1 and L2 regularization.",
-        "source_type": "SOCRATIC_COACH",
-        "expected_route": "research",
-        "expected_tier": "HIGH",
-        "expected_tools": [],
-        "forbidden_tools": [],
+        "chat_selection": "AUTO",
+        "model_selection": "AUTO",
+        "expected_route": "RESEARCH",
+        "expected_tier": "LOCAL",
         "anchor_tokens": [
             "regularization",
             "penalty"
-        ],
-        "mode": "chat"
+        ]
     },
     {
         "id": "TC-RAG-003",
         "name": "Pure Local RAG Manual Grounding",
         "query": "What are the core stages of Retrieval-Augmented Generation outlined in Abhinav Kimothi's July 2025 guide?",
-        "source_type": "LOCAL_RAG",
-        "expected_route": "research",
-        "expected_tier": "HIGH",
-        "expected_tools": [],
-        "forbidden_tools": [],
+        "chat_selection": "RESEARCH",
+        "model_selection": "LOCAL",
+        "expected_route": "RESEARCH",
+        "expected_tier": "LOCAL",
         "anchor_tokens": [
             "generation",
-            "chunk"
-        ],
-        "mode": "deep_research"
+            "retrieval"
+        ]
     },
     {
         "id": "TC-WEB-004",
         "name": "Pure Live Web Scrape Evaluation",
         "query": "What are the core updates announced in the latest stable version of LangGraph released this year?",
-        "source_type": "LIVE_WEB",
-        "expected_route": "research",
-        "expected_tier": "HIGH",
-        "expected_tools": [],
-        "forbidden_tools": [],
+        "chat_selection": "AUTO",
+        "model_selection": "CLOUD",
+        "expected_route": "RESEARCH",
+        "expected_tier": "CLOUD",
         "anchor_tokens": [
             "graph",
             "state"
-        ],
-        "mode": "deep_research"
+        ]
     },
     {
         "id": "TC-HYB-005",
         "name": "Autonomous Deep Research Escalation",
         "query": "Provide a full breakdown and compare architecture differences between ChromaDB and a standard SQL database cluster.",
-        "source_type": "HYBRID_CORE",
-        "expected_route": "research",
-        "expected_tier": "HIGH",
-        "expected_tools": [],
-        "forbidden_tools": [],
+        "chat_selection": "AUTO",
+        "model_selection": "AUTO",
+        "expected_route": "RESEARCH",
+        "expected_tier": "LOCAL",
         "anchor_tokens": [
-            "ChromaDB",
-            "SQL",
+            "chromadb",
+            "sql",
             "architecture"
-        ],
-        "mode": "deep_research"
+        ]
     }
 ]

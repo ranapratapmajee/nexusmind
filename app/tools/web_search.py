@@ -47,7 +47,7 @@ def _execute_sync_ddg_search(query: str, max_results: int) -> List[Dict[str, str
 async def _async_scrape_page_text(url: str, fallback_text: str) -> str:
     """Downloads raw web document strings and extracts clean core text contents."""
     try:
-        async with httpx.AsyncClient(timeout=10.0, headers=HEADERS, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=None, headers=HEADERS, follow_redirects=True) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             html = resp.text

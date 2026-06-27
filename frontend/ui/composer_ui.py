@@ -1,15 +1,13 @@
 # path: frontend/ui/composer_ui.py
 
 from typing import Any, Dict
-import requests
 import streamlit as st
 from ui.api_client import call_backend
 from ui.formatters import get_enabled_models, get_model_label_map
 
-
 def render_composer() -> None:
     """Renders a simplified floating control bar and native chat input element."""
-    modes = st.session_state.get("available_modes", ["chat", "deep_research"])
+    modes = st.session_state.get("available_modes", ["AUTO", "NEXA_CHAT", "RESEARCH"])
     enabled_models = get_enabled_models(st.session_state.model_catalog)
     model_label_map = get_model_label_map(enabled_models)
     model_ids = list(model_label_map.keys())
@@ -26,8 +24,8 @@ def render_composer() -> None:
             selected_mode = st.pills(
                 "Mode Selector",
                 options=modes,
-                default=st.session_state.selected_mode if st.session_state.selected_mode in modes else "chat",
-                format_func=lambda x: "✨ Nexa Chat" if x == "chat" else "🔬 Deep Research",
+                default=st.session_state.selected_mode if st.session_state.selected_mode in modes else "AUTO",
+                format_func=lambda x: "✨ Nexa Chat" if x == "NEXA_CHAT" else ("🔬 Deep Research" if x == "RESEARCH" else "🧠 Auto Orchestrate"),
                 selection_mode="single",
                 label_visibility="collapsed",
                 key="pills_mode_selector",
@@ -39,7 +37,7 @@ def render_composer() -> None:
             selected_model = st.selectbox(
                 "Model Selector",
                 options=model_ids,
-                format_func=lambda x: model_label_map.get(x, x),
+                format_func=lambda x: model_label_map.get(x, x if x != "AUTO" else "🤖 Auto Model"),
                 key="composer_model",
                 label_visibility="collapsed",
             )
@@ -47,11 +45,11 @@ def render_composer() -> None:
 
         user_input = st.chat_input(
             placeholder="Ask Nexa anything...",
-            disabled=st.session_state.is_waiting_for_response,
+            disabled=st.session_state.get("is_waiting_for_response", False),
             key="nexa_chat_input",
         )
 
-    if user_input and not st.session_state.is_waiting_for_response:
+    if user_input and not st.session_state.get("is_waiting_for_response", False):
         clean_input = user_input.strip()
         if clean_input:
             st.session_state.messages.append({"role": "user", "content": clean_input})
@@ -65,51 +63,54 @@ def render_composer() -> None:
             st.session_state.is_waiting_for_response = True
             st.rerun()
 
+# path: frontend/ui/composer_ui.py -> process_pending_request function update
 
 def process_pending_request() -> None:
-    """Orchestrates network payload transmissions and updates local historical state keys."""
-    pending = st.session_state.pending_request
+    """Streams tokens in real-time with a clean, responsive 'Thinking' state indicator."""
+    pending = st.session_state.get("pending_request")
     if not pending:
         return
 
-    reply = ""
-    trace_logs = []
-    metrics = {}
-
-    with st.spinner("Nexa is analyzing request pipeline..."):
-        try:
-            result = call_backend(
-                message=pending["message"],
-                session_id=pending["session_id"],
-                backend_url=pending["backend_url"],
-                model_id=pending["model_id"],
-                mode=pending["mode"],
-            )
-            reply = result.get("reply", "")
-            trace_logs = result.get("trace_logs", [])
-            metrics = result.get("metrics", {})
-
-        except requests.exceptions.RequestException as e:
-            reply = f"I couldn't reach the backend server pipeline endpoint. Ensure your server is live.\n\nError: `{e}`"
-            trace_logs = [
-                {"step_number": 1, "execution_status": "🟢", "node_identifier": "User Request Entry", "telemetry_message": "Payload Ingested"},
-                {"step_number": 2, "execution_status": "🔴", "node_identifier": "FastAPI Network Bridge", "telemetry_message": "Connection Timed Out: Endpoint Unreachable"}
-            ]
-        except Exception as e:
-            reply = f"System Processing Failure: `{e}`"
-            trace_logs = [
-                {"step_number": 1, "execution_status": "🟢", "node_identifier": "User Request Entry", "telemetry_message": "Payload Ingested"},
-                {"step_number": 2, "execution_status": "🔴", "node_identifier": "Runtime Error Intercept", "telemetry_message": f"Exception raised: {str(e)[:40]}"}
-            ]
-
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": reply,
-            "trace_logs": trace_logs,
-            "metrics": metrics,
-        }
-    )
     st.session_state.pending_request = None
+    accumulated_reply = ""
+    
+    with st.chat_message("assistant"):
+        token_area = st.empty()
+        
+        # 🟢 VISUAL STATUS ANCHOR: Render a clean status cue before connection overhead
+        token_area.markdown("🧠 *Nexa is thinking...*")
+
+        event_stream = call_backend(
+            message=pending["message"],
+            session_id=pending["session_id"],
+            backend_url=pending["backend_url"],
+            model_id=pending["model_id"],
+            mode=pending["mode"]
+        )
+
+        try:
+            for event in event_stream:
+                event_type = event.get("type")
+                
+                if event_type == "token":
+                    # The moment the first character fragment lands, overwrite the thinking string
+                    accumulated_reply += event.get("delta", "")
+                    token_area.markdown(accumulated_reply + "▌")
+                    
+                elif event_type == "error":
+                    error_reply = event.get("reply", "💥 Processing pipeline drop out.")
+                    token_area.error(error_reply)
+                    accumulated_reply = error_reply
+                    
+        except Exception as e:
+            token_area.error(f"💥 Connection failed: {str(e)}")
+            accumulated_reply = "💥 Processing pipeline drop out."
+
+        # Flush final clean markdown state without text cursor indicators
+        token_area.markdown(accumulated_reply or "...")
+        
+        # Cache response into local history
+        st.session_state.messages.append({"role": "assistant", "content": accumulated_reply})
+
     st.session_state.is_waiting_for_response = False
     st.rerun()

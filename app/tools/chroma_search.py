@@ -2,75 +2,56 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Tuple
-import chromadb
 from app.settings import settings
-from app.rag_storage import get_embeddings  # Unified vectorizer helper
+from typing import Any, Dict, List, Tuple
+from app.rag_storage import get_vector_store
 
 logger = logging.getLogger("nexusmind.chroma_search")
 
-# Persistent module-level connection reuse pool
-try:
-    _chroma_client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-except Exception as e:
-    logger.error(f"ChromaDB standalone tool connection failed: {e}")
-    _chroma_client = None
-
 VECTOR_DISTANCE_THRESHOLD = 0.65
 
-
-async def fetch_single_query(query: str, collection: Any) -> List[Dict[str, Any]]:
-    """Transforms a single query text to vectors and pulls top-k semantic matches from ChromaDB."""
+async def fetch_single_query(query: str, vector_db: Any) -> List[Dict[str, Any]]:
+    """🟢 NATIVE RETRIEVAL STEP: Leverages LangChain to handle similarity parsing.
+    Automatically takes care of query text vectorization and returns distance scores.
+    """
     try:
-        query_embeddings = await get_embeddings([query])
-        if not query_embeddings:
-            return []
-
-        results = collection.query(
-            query_embeddings=[query_embeddings[0]], 
-            n_results=settings.top_k
-        )
-
-        ids = results.get("ids", [[]])[0]
-        docs = results.get("documents", [[]])[0]
-        metas = results.get("metadatas", [[]])[0]
-        dists = results.get("distances", [[]])[0]
-
+        # Fetch matching chunks with their relevance scores (1.0 - score = distance)
+        # We grab top-k config via a standard default fallback block
+        top_k = getattr(settings, "top_k", 4)
+        raw_hits = await vector_db.asimilarity_search_with_relevance_scores(query, k=top_k)
+        
         return [
             {
-                "id": ids[idx],
-                "document": docs[idx],
-                "metadata": metas[idx] if metas else {},
-                "distance": dists[idx] if (dists and idx < len(dists)) else 1.0,
-                "score": dists[idx] if (dists and idx < len(dists)) else 1.0,
+                "document": doc.page_content,
+                "metadata": doc.metadata,
+                "distance": 1.0 - score
             }
-            for idx in range(len(ids))
+            for doc, score in raw_hits
         ]
     except Exception as e:
-        logger.error(f"Error querying local vector base for chunk context: {e}")
+        logger.error(f"Error querying local vector base via LangChain adapter: {e}")
         return []
 
-
 async def search_local_vectorbase(expanded_queries: List[str]) -> Tuple[List[Dict[str, Any]], float, bool]:
+    """Orchestrates concurrent multi-query database lookups.
+    Flattens raw response vectors, deduplicates content duplicates, and checks certainty.
     """
-    Orchestrates concurrent multi-query database lookups.
-    Flattens, deduplicates results by text identity, and determines confidence.
-    """
-    if _chroma_client is None:
-        logger.error("Aborting search execution pass: ChromaDB server client is offline.")
+    try:
+        # Get the unified, pre-configured LangChain vector store client block
+        vector_db = get_vector_store()
+    except Exception as err:
+        logger.error(f"Aborting search pass: ChromaDB connection dropped: {err}")
         return [], 1.0, False
 
-    collection = _chroma_client.get_or_create_collection(name=settings.CHROMA_COLLECTION)
-
-    # Dispatch flat function executions concurrently across variations
-    tasks = [fetch_single_query(q, collection) for q in expanded_queries]
+    # 🟢 CONCURRENT DISPATCH: Fires all query search tasks across thread channels simultaneously
+    tasks = [fetch_single_query(q, vector_db) for q in expanded_queries]
     batch_results = await asyncio.gather(*tasks)
 
     seen_bodies = set()
     unique_chunks = []
     best_distance = 1.0
 
-    # Cross-query flattening and deduplication pass
+    # Cross-query flattening and string deduplication loop
     for result_list in batch_results:
         for chunk in result_list:
             body = chunk.get("document", "").strip()
@@ -78,10 +59,13 @@ async def search_local_vectorbase(expanded_queries: List[str]) -> Tuple[List[Dic
                 seen_bodies.add(body)
                 unique_chunks.append(chunk)
                 
-                # Update directional HNSW match score
-                score = chunk.get("score") or chunk.get("distance")
-                if score is not None and score < best_distance:
-                    best_distance = score
+                # Update absolute lowest distance track score metric
+                dist = chunk.get("distance", 1.0)
+                if dist < best_distance:
+                    best_distance = dist
 
+    # Evaluate grounding status confidence based on our distance barrier ceiling limit
     has_high_confidence = best_distance <= VECTOR_DISTANCE_THRESHOLD
-    return unique_chunks[:settings.top_k], best_distance, has_high_confidence
+    top_k = getattr(settings, "top_k", 4)
+    
+    return unique_chunks[:top_k], best_distance, has_high_confidence

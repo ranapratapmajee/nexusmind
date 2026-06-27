@@ -9,8 +9,9 @@ def init_state() -> None:
             {
                 "role": "assistant",
                 "content": "Hi, I'm Nexa. Ask me about AI/ML topics, engineering problems, or your ingested documents.",
-                "trace_logs": [], # 🟢 Aligned with backend data contracts
-                "metrics": {},    # 🟢 Aligned with backend data contracts
+                # 🟢 CLEANED: Kept array footprints minimal for the new non-blocking streaming data flow
+                "trace_logs": [], 
+                "metrics": {},    
             }
         ]
 
@@ -18,7 +19,7 @@ def init_state() -> None:
         st.session_state.session_id = str(uuid.uuid4())
 
     if "backend_url" not in st.session_state:
-        st.session_state.backend_url = "http://localhost:8001"  # Unified default port mapping matching most FastAPI apps
+        st.session_state.backend_url = "http://localhost:8001"  # Port 8001 maps to our refactored uvicorn server
 
     if "backend_online" not in st.session_state:
         st.session_state.backend_online = None
@@ -26,17 +27,19 @@ def init_state() -> None:
     if "backend_status_text" not in st.session_state:
         st.session_state.backend_status_text = "Optional: click to check backend connection status."
 
+    # 🟢 ALIGNED WITH NEW ENUM CONSTANTS: 
+    # Swapping old arbitrary mode keys for the type-safe fallback strings
     if "selected_mode" not in st.session_state:
-        st.session_state.selected_mode = "chat"
+        st.session_state.selected_mode = "AUTO"
 
     if "selected_model_id" not in st.session_state:
-        st.session_state.selected_model_id = "auto"
+        st.session_state.selected_model_id = "AUTO"
 
     if "available_modes" not in st.session_state:
-        st.session_state.available_modes = ["chat", "deep_research"]
+        st.session_state.available_modes = ["AUTO", "NEXA_CHAT", "RESEARCH"]
 
     if "model_catalog" not in st.session_state:
-        st.session_state.model_catalog = []
+        st.session_state.model_catalog = ["AUTO", "LOCAL", "CLOUD"]
 
     if "options_loaded" not in st.session_state:
         st.session_state.options_loaded = False

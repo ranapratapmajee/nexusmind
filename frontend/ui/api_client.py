@@ -1,7 +1,9 @@
 # path: frontend/ui/api_client.py
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Generator, Tuple
 import requests
+import json
+import httpx
 import streamlit as st
 
 def check_backend_status(backend_url: str) -> Tuple[bool, str]:
@@ -30,11 +32,12 @@ def fetch_chat_options(backend_url: str) -> Dict[str, Any]:
         resp.raise_for_status()
         data = resp.json()
 
+        # 🟢 UPDATED: Maps onto the new schema broadcasted by the updated routes.py
         return {
-            "default_model_id": data.get("default_model_id", "auto"),
-            "default_mode": data.get("default_mode", "chat"),
-            "available_modes": data.get("available_modes", ["chat", "deep_research"]),
-            "available_models": data.get("available_models", []),
+            "default_model_id": data.get("default_model_selection", "AUTO"),
+            "default_mode": data.get("default_chat_selection", "AUTO"),
+            "available_modes": data.get("available_chat_paths", ["AUTO", "NEXA_CHAT", "RESEARCH"]),
+            "available_models": data.get("available_model_tiers", ["AUTO", "LOCAL", "CLOUD"]),
         }
     except Exception as e:
         raise RuntimeError(f"Failed parsing configuration parameters map: {e}")
@@ -47,11 +50,11 @@ def ensure_chat_options_loaded() -> None:
 
     try:
         options = fetch_chat_options(st.session_state.backend_url)
-        st.session_state.available_modes = options.get("available_modes", ["chat", "deep_research"])
-        st.session_state.model_catalog = options.get("available_models", [])
+        st.session_state.available_modes = options.get("available_modes", ["AUTO", "NEXA_CHAT", "RESEARCH"])
+        st.session_state.model_catalog = options.get("available_models", ["AUTO", "LOCAL", "CLOUD"])
 
-        default_mode = options.get("default_mode", "chat")
-        default_model_id = options.get("default_model_id", "auto")
+        default_mode = options.get("default_mode", "AUTO")
+        default_model_id = options.get("default_model_id", "AUTO")
 
         if st.session_state.selected_mode not in st.session_state.available_modes:
             st.session_state.selected_mode = default_mode
@@ -64,8 +67,8 @@ def ensure_chat_options_loaded() -> None:
         st.session_state.options_error = ""
         st.session_state.backend_online = True
     except Exception as e:
-        st.session_state.available_modes = ["chat", "deep_research"]
-        st.session_state.model_catalog = []
+        st.session_state.available_modes = ["AUTO", "NEXA_CHAT", "RESEARCH"]
+        st.session_state.model_catalog = ["AUTO", "LOCAL", "CLOUD"]
         st.session_state.options_loaded = True
         st.session_state.options_error = str(e)
         st.session_state.backend_online = False
@@ -77,50 +80,50 @@ def refresh_chat_options() -> None:
     ensure_chat_options_loaded()
 
 
+# path: frontend/ui/api_client.py -> Update call_backend wrapper
+
 def call_backend(
     message: str,
     session_id: str,
     backend_url: str,
     model_id: str,
     mode: str,
-) -> Dict[str, Any]:
-    """Executes a POST request to the unified routing network endpoint."""
+) -> Generator[Dict[str, Any], None, None]:
+    """Yields live JSON payload event blocks chunk-by-chunk without network timeout rules."""
     url = f"{backend_url.rstrip('/')}/api/chat"
+    
+    norm_chat = "NEXA_CHAT" if mode == "chat" else ("RESEARCH" if mode == "deep_research" else mode)
+    norm_model = "CLOUD" if model_id == "cloud" else ("LOCAL" if model_id == "local" else model_id)
+    
     payload = {
         "session_id": session_id,
         "message": message,
-        "model_id": model_id,
-        "mode": mode,
+        "chat_selection": norm_chat,
+        "model_selection": norm_model,
     }
 
     try:
-        resp = requests.post(url, json=payload, timeout=300)
-        resp.raise_for_status()
-        data = resp.json()
-
-        return {
-            "reply": data.get("reply", "Sorry, I did not receive a valid response block."),
-            "trace_logs": data.get("trace_logs", []),
-            "metrics": data.get("metrics", {})
-        }
-    except requests.exceptions.Timeout:
-        return {
-            "reply": "⚠️ **The backend system processing lifecycle timed out.**\n\nYour deep research or reasoning query exceeded the maximum generation window constraint limit (300 seconds).",
-            "trace_logs": [],
-            "metrics": {},
-        }
-    except requests.exceptions.ConnectionError:
-        return {
-            "reply": "❌ **Network Gateway Connection Error.**\n\nNexa couldn't establish a socket mapping connection route with the FastAPI gateway.",
-            "trace_logs": [],
-            "metrics": {},
+        # 🟢 REMOVED TIME LIMIT: Timeout set to None so Streamlit waits forever for SSE events
+        with httpx.stream("POST", url, json=payload, timeout=None) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if line.startswith("data:"):
+                    data_str = line.replace("data:", "").strip()
+                    if data_str == "[DONE]":
+                        break
+                    yield json.loads(data_str)
+                    
+    except httpx.ConnectError:
+        yield {
+            "type": "error",
+            "reply": "❌ **Network Gateway Connection Error.**\n\nNexa couldn't establish a socket mapping connection route with the FastAPI gateway."
         }
     except Exception as e:
-        return {
-            "reply": f"💥 **An unexpected processing failure occurred:** `{str(e)}`",
-            "trace_logs": [],
-            "metrics": {},
+        yield {
+            "type": "error",
+            "reply": f"💥 **An unexpected processing failure occurred:** `{str(e)}`"
         }
+
 
 
 def upload_document_stream(backend_url: str, uploaded_file) -> Dict[str, Any]:

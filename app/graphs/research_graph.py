@@ -3,99 +3,104 @@
 import time
 from typing import Dict, Any
 from langgraph.graph import START, END, StateGraph
-from app.state_models import GlobalState, PipelineTraceLog
-from app.llm_gateway import generate_with_meta
+from langchain_core.messages import AIMessage
+from langchain_core.prompts import ChatPromptTemplate
+
+from app.state_models import GlobalState
+from app.llm_gateway import get_model_by_tier
 from app.tools.chroma_search import search_local_vectorbase
 from app.tools.web_search import search_live_web
+
+# =========================================================================
+# 📝 CENTRALIZED PROMPT LAYOUT SECTION
+# =========================================================================
+
+PROMPT_SYNTHESIS = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are a specialized technical analysis agent. Synthesize the provided reference "
+        "materials into a clean engineering explanation. Explicitly retain structural terms. "
+        "Include embedded inline citations matching the source formats exactly.\n\n"
+        "Foundational Reference Materials:\n{context_string}"
+    )),
+    ("human", "{query}")
+])
 
 # =========================================================================
 # 🎛️ RESEARCH GRAPH NODES
 # =========================================================================
 
 async def gather_sources_node(state: GlobalState) -> Dict[str, Any]:
-    """Node: Aggregates vector chunks and web lookups concurrently using tools."""
+    """Node: Aggregates local vector chunks and live web lookups dynamically."""
     start_time = time.perf_counter()
-    new_logs = []
     
-    # Dynamically pick up the current log count from the main state
-    base_step = len(state.chronological_trace_logs)
+    # Safely look for search term queries using your renamed forward_query fallback variable
+    queries = state.pipeline_context.get("expanded_queries") or [state.forward_query]
     
-    queries = state.pipeline_context.get("expanded_queries") or [state.sanitized_user_query]
-    new_logs.append(PipelineTraceLog(step_number=base_step + 1, node_identifier="Research Core", telemetry_message="Invoking atomic search tools across variations."))
-
+    # 1. Execute local vector lookup
     chunks, best_dist, has_grounding = await search_local_vectorbase(queries)
-    if has_grounding:
-        new_logs.append(PipelineTraceLog(step_number=base_step + 2, node_identifier="ChromaDB Engine", telemetry_message=f"Grounding match confirmed across vectors (Dist: {best_dist:.2f})"))
-    else:
-        new_logs.append(PipelineTraceLog(step_number=base_step + 2, execution_status="🟡", node_identifier="ChromaDB Engine", telemetry_message="Local vector store proximity fell below threshold variables."))
-
+    grounding_status = "confirmed" if has_grounding else "below threshold"
+    
+    # 2. Execute dynamic web fallback based on vector certainty parameters
     web_sources = []
-    if not has_grounding or state.ui_requested_mode == "deep_research":
-        new_logs.append(PipelineTraceLog(step_number=base_step + 3, node_identifier="Web Scraper", telemetry_message="Executing live web lookup fallback transformations."))
+    if not has_grounding or state.pipeline_context.get("force_deep_research", False):
         web_sources = await search_live_web(queries)
 
-    context_lines = [f"[LOCAL FILE MATERIAL]\n{c.get('document', '')}" for c in chunks] + \
-                    [f"[WEB MATERIAL: {s['title']} | URL: {s['url']}]\n{s['content']}" for s in web_sources]
+    # 3. Process strings into an unified reference body
+    context_lines = [f"[LOCAL MATERIAL]\n{c.get('document', '')}" for c in chunks] + \
+                    [f"[WEB SOURCE: {s['title']} | URL: {s['url']}]\n{s['content']}" for s in web_sources]
+    formatted_string = "\n\n---\n\n".join(context_lines)
 
-    updated_context = {
-        **state.pipeline_context,
-        "retrieved_chunks": chunks,
-        "online_sources": web_sources,
-        "formatted_context_string": "\n\n---\n\n".join(context_lines)
-    }
-
-    updated_metrics = {
-        **state.performance_metrics_ms,
-        "research_gather_ms": int((time.perf_counter() - start_time) * 1000),
-        "total_sources_found": len(chunks) + len(web_sources)
-    }
-
+    ms = int((time.perf_counter() - start_time) * 1000)
+    
+    # Return updates natively. LangGraph blends these dictionary changes automatically!
     return {
-        "pipeline_context": updated_context,
-        "chronological_trace_logs": new_logs,
-        "performance_metrics_ms": updated_metrics
+        "pipeline_context": {
+            "retrieved_chunks": chunks,
+            "online_sources": web_sources,
+            "formatted_context_string": formatted_string
+        },
+        "performance_metrics_ms": {
+            "research_gather_ms": ms,
+            "total_sources_found": len(chunks) + len(web_sources)
+        },
+        "messages": [
+            AIMessage(
+                content="", 
+                additional_kwargs={
+                    "status": "🔍", 
+                    "telemetry": f"Grounding {grounding_status}. Retrieved {len(chunks)} chunks and {len(web_sources)} web documents."
+                }
+            )
+        ]
     }
 
 
 async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
-    """Node: Synthesizes gathered data into a citation-tracked markdown response."""
+    """Node: Synthesizes gathered dataset into a citation-tracked technical reply."""
     start_time = time.perf_counter()
     
-    # Pick up current log length dynamically so step sequence never breaks
-    base_step = len(state.chronological_trace_logs)
+    # Resolve pre-allocated model tier cleanly via the unified gateway factory 
+    model = get_model_by_tier(state.allocated_model_tier)
     
-    new_logs = [
-        PipelineTraceLog(step_number=base_step + 1, node_identifier="Synthesis Engine", telemetry_message=f"Generating response via [{state.allocated_model_id}].")
-    ]
-
-    prompt = (
-        f"Persona Settings: {state.dynamic_persona_mode}\n"
-        f"User Query Objective: {state.sanitized_user_query}\n\n"
-        f"Foundational Source Context Block:\n{state.pipeline_context.get('formatted_context_string', 'No reference data loaded.')}\n\n"
-        "Synthesize the provided materials into a clean technical explanation. Include embedded citations."
-    )
-
+    # Extract historical dataset from the pipeline state dictionary
+    context_data = state.pipeline_context.get("formatted_context_string", "No reference data loaded.")
+    
     try:
-        response = await generate_with_meta(
-            task_type="research_synthesis",
-            user_message=prompt,
-            model_id=state.allocated_model_id
-        )
-        reply = response.get("text", "").strip()
+        response = await (PROMPT_SYNTHESIS | model).ainvoke({
+            "context_string": context_data,
+            "query": state.forward_query
+        })
+        reply = response.content
     except Exception as e:
-        reply = f"❌ Technical synthesis failed: {str(e)}"
+        reply = f"❌ Technical synthesis processing sequence failed: {str(e)}"
+        response = AIMessage(content=reply)
 
-    new_logs.append(PipelineTraceLog(step_number=base_step + 2, node_identifier="Research Core", telemetry_message="Deep analysis complete."))
-
-    updated_metrics = {
-        **state.performance_metrics_ms,
-        "research_synthesis_ms": int((time.perf_counter() - start_time) * 1000)
-    }
+    ms = int((time.perf_counter() - start_time) * 1000)
 
     return {
         "final_assistant_reply": reply,
-        "chronological_trace_logs": new_logs,
-        "performance_metrics_ms": updated_metrics
+        "performance_metrics_ms": {"research_synthesis_ms": ms},
+        "messages": [response]
     }
 
 # =========================================================================
@@ -110,5 +115,5 @@ builder.add_edge(START, "gather_sources")
 builder.add_edge("gather_sources", "synthesize_research")
 builder.add_edge("synthesize_research", END)
 
-# Expose compiled subgraph instance cleanly to app/core_graph.py
+# Expose compiled sub-graph topology safely to app/core_graph.py
 compiled_research_graph = builder.compile()

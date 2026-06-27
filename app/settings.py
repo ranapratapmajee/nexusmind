@@ -1,66 +1,79 @@
 # path: app/settings.py
 
-import os
-from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 🎯 Establish Project Root
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-class AppMetaWrapper:
-    """Mock metadata wrapper to fulfill frontend settings.app namespace properties cleanly."""
-    def __init__(self, name: str, version: str):
-        self.name = name
-        self.version = version
-
-class NexusSettings(BaseSettings):
-    """Unified application configurations parsed directly from the environment."""
-    
-    model_config = SettingsConfigDict(
-        env_file=str(PROJECT_ROOT / ".env"),
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
-
-    # Core Variables
+class AppSettings(BaseSettings):
+    """🧠 NexusMind Central Configuration Management Core Layer.
+    Automatically parses environment configurations using type-safe declarations.
+    """
+    # ====== Environment ======
+    APP_NAME: str = "NexusMind"
     APP_ENV: str = "development"
-    LOG_LEVEL: str = "INFO"
-    
+    bot_name: str = "NexaEngine"
+
+    # ====== API (FastAPI) ======
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8001
-    
+
+    # ====== Frontend (Streamlit) ======
     FRONTEND_HOST: str = "0.0.0.0"
     FRONTEND_PORT: int = 8501
-    
+    BACKEND_API_URL: str = "http://localhost:8001"
+
+    # ====== ChromaDB Vector Store ======
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
-    CHROMA_COLLECTION: str = "knowledgebase"
-    
+    CHROMA_COLLECTION: str = "document_chunks"
+
+    # ====== Neo4j Graph Database ======
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: str = "rana1234"
+    NEO4J_DATABASE: str = "neo4j"
+
+    # ====== MCP Server ======
     MCP_SERVER_HOST: str = "0.0.0.0"
     MCP_SERVER_PORT: int = 3000
-    
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    MCP_TRANSPORT: str = "http"
+
+    # ====== Ollama (Local LLM) ======
     OLLAMA_MODEL: str = "qwen2.5-coder:7b"
-    
-    GEMINI_API_KEY: Optional[str] = None
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+
+    # ====== Cloud LLM Secrets ======
     GEMINI_MODEL: str = "gemini-2.5-flash"
-    
+    GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+
+    # ====== Data Paths ======
     OFFLINE_PDF_DIR: str = "./data"
 
-    # Shared properties for quick backward compatibility
-    @property
-    def bot_name(self) -> str:
-        return "Nexa"
+    # ====== Logging ======
+    LOG_LEVEL: str = "INFO"
+    
+    # ====== LangSmith Tracing Metrics ======
+    LANGCHAIN_TRACING_V2: bool = False
+    LANGCHAIN_ENDPOINT: str = "https://langchain.com"
+    LANGCHAIN_API_KEY: Optional[str] = None
+    LANGCHAIN_PROJECT: str = "nexusmind-core"
 
-    @property
-    def top_k(self) -> int:
-        return 6
+    # 🟢 Pydantic v2 Environment Auto-Discovery Hook
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore" # Safely bypass extra keys in custom environments
+    )
 
-    # 🟢 Bridge property to maps settings.app.name / settings.app.version seamlessly to the UI
-    @property
-    def app(self) -> AppMetaWrapper:
-        return AppMetaWrapper(name="NexusMind", version="2.0.0")
+    # 🟢 FIELD CLEANUP VALIDATOR: Strips any unintended spaces from model strings
+    @field_validator("OLLAMA_MODEL", mode="before")
+    @classmethod
+    def strip_model_string(cls, v: Any) -> str:
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
-# Singleton Instance
-settings = NexusSettings()
+# Instantiate the global settings object for system-wide access
+settings = AppSettings()

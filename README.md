@@ -1,22 +1,17 @@
 # Nexa Mind 🧠
 
-> **Zero-Friction Technical Exploration, Grounded RAG, and Deep Analytics.**
+Zero-Friction Technical Exploration, Grounded RAG, and Deep Analytics.
 
-Nexa Mind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance **FastAPI** gateway alongside a compiled, multi-tiered native **LangGraph Orchestration Network** to route conversational prompts dynamically based on semantic complexity. By limiting front-end configurations to two macro choices (**✨ Nexa Chat** and **🔬 Deep Research**), the system automatically coordinates edge security filtering, PII data masking, local heuristic fast-paths, multi-query expansions, and async background vector data loading cleanly on the backend.
+Nexa Mind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance FastAPI gateway alongside a compiled, single-tiered native LangGraph Orchestration Network to route conversational prompts dynamically based on semantic complexity. By limiting front-end configurations to two macro choices (✨ Nexa Chat and 🔬 Deep Research), the system automatically coordinates edge security filtering, PII data masking, automated path-routing intent classifications, multi-query expansions, and async background vector data loading cleanly on the backend. All inferences are routed dynamically using a unified user-controlled layout model selector (🤖 Auto, LOCAL, CLOUD).
 
----
+------------------------------
 
 ## 🏗️ Technical System Architecture
-
-Nexa Mind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit layout UI, the robust FastAPI communication layer, Docker Desktop background infrastructure, and local execution threads is fully outlined below:
-
-## 🏗️ System Architecture Flow
-
-The interaction between the high-density Streamlit user interface canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
+Nexa Mind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit user interface canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
 
 ```mermaid
 graph TD
-    %% Styling Configuration Profiles (Renamed 'graph' to 'graphCore' to dodge keyword collision)
+    %% Styling Configuration Profiles
     classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:2px,color:#F8FAFC;
     classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#F1F5F9;
     classDef graphCore fill:#312E81,stroke:#818CF8,stroke-width:1px,color:#E2E8F0;
@@ -64,34 +59,34 @@ graph TD
     %% Data Pipeline Interaction Lines
     UI -->|1. Submit User Query| Composer
     Composer -->|2. HTTP POST Payload ChatRequest| Router
-    Router -->|3. Initialize GlobalState & .ainvoke| CoreGraph
+    Router -->|3. Initialize GlobalState & .astream_events| CoreGraph
     
     CoreGraph --> GovNode
-    GovNode -->|4. Regex Guardrails & PII Masking Pass| RouteNode
+    GovNode -->|4. Guardrail & PII Masking Pass| RouteNode
     
     %% Conditional Branching Elements
-    RouteNode -->|5a. Heuristic Low Complexity Routing Route| FastNode
-    RouteNode -->|5b. Deep Research Dynamic Path Check| ResearchGraph
+    RouteNode -->|5a. Heuristic Chat Path Routing| FastNode
+    RouteNode -->|5b. Research Subgraph Dynamic Path Trigger| ResearchGraph
     
     %% Compute Integrations
-    FastNode -->|6. Direct Generation Handshake| OllamaCompletions
+    FastNode -->|6. Unified Gateway Factory Model| OllamaCompletions
     
     ResearchGraph --> GatherNode
     GatherNode -->|7a. Vector Proximity Query| ChromaDB
     GatherNode -->|7b. Multiquery Fallback Scrape| WebScrape
     GatherNode --> SynthNode
-    SynthNode -->|8. Grounded Context Synthesis Pass| GeminiCloud
+    SynthNode -->|8. Grounded Context Model Call| GeminiCloud
     
-    %% Response Aggregation and State Pipeline Returns
-    FastNode -->|9a. Return State Payload Array| Router
-    SynthNode -->|9b. Return Mutated State Payload Array| Router
+    %% Response Aggregation and Real-Time SSE Wire Output
+    FastNode -->|9a. Yield Real-Time Text Token Chunk| Router
+    SynthNode -->|9b. Yield Real-Time Text Token Chunk| Router
+    RouteNode -->|9c. Yield Live Trace Telemetry Object| Router
     
-    Router -->|10. Yield JSON Formatted ChatResponse| Console
-    Console -->|11. Render Message Bubble & Trace Expander Ledger| UI
-
+    Router -->|10. Stream SSE Event Data Packets| Console
+    Console -->|11. Unpack & Render in Local empty Container| UI
 ```
 
-### 1. Unified Sequence Flow
+## 1. Unified Sequence Flow
 
 ```mermaid
 sequenceDiagram
@@ -107,18 +102,18 @@ sequenceDiagram
 
     %% Conversational Loop
     Dev->>ST: Submits Query (UI Inputs)
-    ST->>API: HTTP POST /api/chat (ChatRequest)
-    API->>CG: ainvoke(GlobalState)
+    ST->>API: HTTP POST /api/chat (ChatRequest SSE Stream)
+    API->>CG: astream_events(GlobalState)
     
     critical Edge Governance
-        CG->>CG: Regex Prompt Injection Safeguards
-        CG->>CG: Regex PII Scrubber & String Masking
+        CG->>CG: LLM Structured Output Guardrail Check
+        CG->>CG: Mask PII into forward_query string variable
     end
 
-    alt Low Complexity Tier
-        CG->>OL: HTTP POST /v1/chat/completions (Fast-Path)
-        OL-->>CG: Returns Plaintext Token Buffer
-    else High Complexity Tier / Deep Research Checked
+    alt Chat Path Triggered
+        CG->>OL: Stream Chat completions chunk token loop
+        OL-->>CG: Yields Text Token Delta Chunks
+    else Research Path Triggered
         CG->>SG: Cascades State down to Subgraph Node
         
         par Parallel Retrieval Matrix
@@ -129,18 +124,17 @@ sequenceDiagram
         end
         
         SG->>GEM: Dispatches Enriched Grounded Context Prompt
-        GEM-->>SG: Returns Citation-Tracked Response Markdown
+        GEM-->>SG: Yields Citation-Tracked Token Delta Chunks
         SG-->>CG: Merges Subgraph Results into State Array
     end
 
-    CG->>CG: Calculates execution_ms Metrics Block
-    CG->>API: Yields Mutated GlobalState Instance
-    API->>ST: Returns JSON Formatted ChatResponse
-    ST->>Dev: Renders Message bubble & Monospaced Trace Expander
-
+    CG->>CG: Calculates performance_metrics_ms values
+    CG-->>API: Emits trace, metrics, and token SSE frames
+    API-->>ST: Streams data packet frames over text/event-stream
+    ST->>Dev: Renders real-time text in empty container & updates trace expander
 ```
 
-### 2. Context Ingestion & Real-Time Background RAG Pipeline
+## 2. Context Ingestion & Real-Time Background RAG Pipeline
 
 When a technical reference manual or PDF is uploaded via the custom Streamlit sidebar expander console, it immediately triggers a non-blocking asynchronous multi-threaded ingestion workflow:
 
@@ -165,15 +159,15 @@ graph TD
     StorageDir --> IngestWorker
 
     subgraph RAG Compilation Sequence [Atomic Chunker Engine]
-        IngestWorker --> HashCheck[🔒 Evict Duplicate Collision IDs]
-        HashCheck --> TextStream[📝 Extract Raw Text pages]
-        TextStream --> Chunking[✂️ Generate Text Chunk Array]
+        IngestWorker --> HashCheck[🔒 Evict Duplicate Collision doc_hash IDs]
+        HashCheck --> TextStream[📝 Extract Raw Text via pdfminer]
+        TextStream --> Chunking[✂️ Generate Split text via RecursiveCharacterTextSplitter]
     end
     class HashCheck,TextStream,Chunking processStyle;
 
     subgraph Asynchronous Vector Pipeline [Ollama Compute Cluster]
-        Chunking --> EmbedAPI[🚀 Local Ollama: /v1/embeddings]
-        EmbedAPI --> EmbedMerge[🧬 Bind metadatas & Nom_Embed Arrays]
+        Chunking --> EmbedAPI[🚀 Local LangChain OllamaEmbeddings Client]
+        EmbedAPI --> EmbedMerge[🧬 Bind document chunks & metadata maps]
     end
     class EmbedAPI,EmbedMerge processStyle;
     
@@ -183,7 +177,6 @@ graph TD
     end
 
     Chroma --> Log[✅ Log standard terminal confirmation metrics]
-
 ```
 
 ---

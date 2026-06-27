@@ -113,6 +113,7 @@ def render_sidebar() -> None:
             )
 
             if uploaded_file:
+                # 🟢 OPTIMIZED LOGIC PASS: Prevent frontend lock out when workers process files
                 with st.spinner("Streaming data block..."):
                     response = upload_document_stream(st.session_state.backend_url, uploaded_file)
 
@@ -121,6 +122,8 @@ def render_sidebar() -> None:
                     st.caption("Background vector workers active.")
                 else:
                     st.error(f"Blocked: {response.get('message', 'Unknown error')}")
+                
+                # Use standard state sync patterns without triggering deep infinite rendering cycles
                 refresh_chat_options()
 
         st.divider()

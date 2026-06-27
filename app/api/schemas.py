@@ -1,27 +1,21 @@
 # path: app/api/schemas.py
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List
 from pydantic import BaseModel, Field
-from app.state_models import PipelineTraceLog  # 🟢 Aligned import location pointer
-
-UserFacingMode = Literal["chat", "deep_research"]
+from app.state_models import ChatPathSelection, ModelTierSelection
 
 class ChatRequest(BaseModel):
-    """Parses raw inbound client JSON strings sent by the user interface."""
+    """Parses raw inbound client JSON parameters sent by the frontend UI."""
     session_id: str = "default"
     message: str
-    model_id: str = "auto"
-    mode: UserFacingMode = "chat"
-
-class ChatResponse(BaseModel):
-    """Enforces execution response contracts returning downstream to frontend elements."""
-    reply: str
-    trace_logs: List[PipelineTraceLog] = Field(default_factory=list)
-    metrics: Dict[str, int] = Field(default_factory=dict)
+    
+    # 🟢 Aligned with your simplified selections
+    chat_selection: ChatPathSelection = ChatPathSelection.AUTO
+    model_selection: ModelTierSelection = ModelTierSelection.AUTO
 
 class ChatOptionsResponse(BaseModel):
-    """Broadcasts available model parameters directly down to UI drop-down selectors."""
-    default_model_id: str
-    default_mode: UserFacingMode = "chat"
-    available_modes: List[UserFacingMode] = Field(default_factory=list)
-    available_models: List[str] = Field(default_factory=list)
+    """Broadcasts available parameters down to Streamlit drop-down components."""
+    default_chat_selection: ChatPathSelection = ChatPathSelection.AUTO
+    default_model_selection: ModelTierSelection = ModelTierSelection.AUTO
+    available_chat_paths: List[str] = Field(default_factory=list)
+    available_model_tiers: List[str] = Field(default_factory=list)
