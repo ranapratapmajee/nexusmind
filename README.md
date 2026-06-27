@@ -1,14 +1,14 @@
-# NexusMind 🧠
+# Nexa Mind 🧠
 
 > **Zero-Friction Technical Exploration, Grounded RAG, and Deep Analytics.**
 
-NexusMind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance **FastAPI** gateway alongside a compiled, multi-tiered native **LangGraph Orchestration Network** to route conversational prompts dynamically based on semantic complexity. By limiting front-end configurations to two macro choices (**✨ Nexa Chat** and **🔬 Deep Research**), the system automatically coordinates edge security filtering, PII data masking, local heuristic fast-paths, multi-query expansions, and async background vector data loading cleanly on the backend.
+Nexa Mind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance **FastAPI** gateway alongside a compiled, multi-tiered native **LangGraph Orchestration Network** to route conversational prompts dynamically based on semantic complexity. By limiting front-end configurations to two macro choices (**✨ Nexa Chat** and **🔬 Deep Research**), the system automatically coordinates edge security filtering, PII data masking, local heuristic fast-paths, multi-query expansions, and async background vector data loading cleanly on the backend.
 
 ---
 
 ## 🏗️ Technical System Architecture
 
-NexusMind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit layout UI, the robust FastAPI communication layer, Docker Desktop background infrastructure, and local execution threads is fully outlined below:
+Nexa Mind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit layout UI, the robust FastAPI communication layer, Docker Desktop background infrastructure, and local execution threads is fully outlined below:
 
 ### 1. Unified Sequence Flow
 
@@ -25,43 +25,43 @@ sequenceDiagram
     participant GEM as Cloud Gemini Cloud API
 
     %% Conversational Loop
-    Dev->+ST: Submits Query (UI Inputs)
-    ST->+API: HTTP POST /api/chat (ChatRequest)
-    API->+CG: ainvoke(GlobalState)
+    Dev->>ST: Submits Query (UI Inputs)
+    ST->>API: HTTP POST /api/chat (ChatRequest)
+    API->>CG: ainvoke(GlobalState)
     
     critical Edge Governance
-        CG->CG: Regex Prompt Injection Safeguards
-        CG->CG: Regex PII Scrubber & String Masking
+        CG->>CG: Regex Prompt Injection Safeguards
+        CG->>CG: Regex PII Scrubber & String Masking
     end
 
     alt Low Complexity Tier
-        CG->+OL: HTTP POST /v1/chat/completions (Fast-Path)
-        OL---─▼CG: Returns Plaintext Token Buffer
+        CG->>OL: HTTP POST /v1/chat/completions (Fast-Path)
+        OL-->>CG: Returns Plaintext Token Buffer
     else High Complexity Tier / Deep Research Checked
-        CG->+SG: Cascades State down to Subgraph Node
+        CG->>SG: Cascades State down to Subgraph Node
         
         par Parallel Retrieval Matrix
-            SG->+DB: Query Collection Vector Space (Top-K)
-            DB---─▼SG: Array Text Chunks & Proximity Scores
+            SG->>DB: Query Collection Vector Space (Top-K)
+            DB-->>SG: Array Text Chunks & Proximity Scores
         and Fallback Web Lookup
-            SG->+SG: Run trafilatura Live Page Extraction
+            SG->>SG: Run trafilatura Live Page Extraction
         end
         
-        SG->+GEM: Dispatches Enriched Grounded Context Prompt
-        GEM---─▼SG: Returns Citation-Tracked Response Markdown
-        SG---─▼CG: Merges Subgraph Results into State Array
+        SG->>GEM: Dispatches Enriched Grounded Context Prompt
+        GEM-->>SG: Returns Citation-Tracked Response Markdown
+        SG-->>CG: Merges Subgraph Results into State Array
     end
 
-    CG->CG: Calculates execution_ms Metrics Block
-    CG---─▼API: Yields Mutated GlobalState Instance
-    API---─▼ST: Returns JSON Formatted ChatResponse
-    ST->-Dev: Renders Message bubble & Monospaced Trace Expander
+    CG->>CG: Calculates execution_ms Metrics Block
+    CG->>API: Yields Mutated GlobalState Instance
+    API->>ST: Returns JSON Formatted ChatResponse
+    ST->>Dev: Renders Message bubble & Monospaced Trace Expander
 
 ```
 
 ### 2. Context Ingestion & Real-Time Background RAG Pipeline
 
-When a technical reference manual or PDF is uploaded via the custom Streamlit sidebar expander console, it immediately triggers an non-blocking asynchronous multi-threaded ingestion workflow:
+When a technical reference manual or PDF is uploaded via the custom Streamlit sidebar expander console, it immediately triggers a non-blocking asynchronous multi-threaded ingestion workflow:
 
 ```mermaid
 graph TD
@@ -74,34 +74,34 @@ graph TD
     Upload[📁 User Drops Reference PDF in Sidebar UI] -->|HTTP Multipart Binary Stream| Route[⚡ FastAPI Endpoint: /api/rag/upload]
     
     subgraph Local Disk Operations [Host Environment OS]
-        Route -->|1. Sanitize Filename Matrix| Write[💾 Write Binary Chunk stream to disk]
-        Write -->|Path Resolution| StorageDir[./data/ File Cluster Vault]
+        Route --> Write[💾 Write Binary Chunk stream to disk]
+        Write --> StorageDir[./data/ File Cluster Vault]
         class StorageDir fileStyle;
     end
 
-    Route -->|2. Register Async Task BackgroundTasks.add_task| IngestWorker[⚙️ Background Process Thread: run_ingest]
+    Route --> IngestWorker[⚙️ Background Process Thread: run_ingest]
     class IngestWorker processStyle;
-    StorageDir -->|Read Stream File Target| IngestWorker
+    StorageDir --> IngestWorker
 
     subgraph RAG Compilation Sequence [Atomic Chunker Engine]
-        IngestWorker -->|Hash Extraction sha256| HashCheck[🔒 Evict Duplicate Collision IDs]
-        HashCheck -->|PdfReader Block Extraction| TextStream[📝 Extract Raw Text pages]
-        TextStream -->|RecursiveCharacterTextSplitter 800/200| Chunking[✂️ Generate Text Chunk Array]
+        IngestWorker --> HashCheck[🔒 Evict Duplicate Collision IDs]
+        HashCheck --> TextStream[📝 Extract Raw Text pages]
+        TextStream --> Chunking[✂️ Generate Text Chunk Array]
     end
     class HashCheck,TextStream,Chunking processStyle;
 
     subgraph Asynchronous Vector Pipeline [Ollama Compute Cluster]
-        Chunking -->|Concurrently Dispatched Tasks asyncio.gather| EmbedAPI[🚀 Local Ollama: /v1/embeddings]
-        EmbedAPI -->|Batch Vector Output Arrays| EmbedMerge[🧬 Bind metadatas & Nom_Embed Arrays]
+        Chunking --> EmbedAPI[🚀 Local Ollama: /v1/embeddings]
+        EmbedAPI --> EmbedMerge[🧬 Bind metadatas & Nom_Embed Arrays]
     end
     class EmbedAPI,EmbedMerge processStyle;
     
     subgraph Persistent Storage Database [Docker Desktop Sandbox]
-        EmbedMerge -->|SQLite Batch Upsert fragments size 100| Chroma[🗄️ ChromaDB Collection Server Container :8000]
+        EmbedMerge --> Chroma[🗄️ ChromaDB Collection Server Container :8000]
         class Chroma infraStyle;
     end
 
-    Chroma -->|Success Handshake Status| Log[✅ Log standard terminal confirmation metrics]
+    Chroma --> Log[✅ Log standard terminal confirmation metrics]
 
 ```
 
@@ -150,7 +150,7 @@ nexusmind/
 │   │   └── schemas.py         # Request/Response validation models
 │   │
 │   ├── tools/                 # DATA DISCOVERY ISOLATED OPERATIONS Retrival Tools
-│   │   ├── chroma_search.py   # Vector collection index query utility retriver
+│   │   ├── chroma_search.py   # Vector collection index query utility retriever
 │   │   └── web_search.py      # Async live search scraper tool
 │   │
 │   └── graphs/                # INDEPENDENT COMPILATION AGENT SUBGRAPHS
@@ -270,5 +270,3 @@ The Streamlit web container renders custom execution trace nodes instantly. This
 
 * **Workspace Owner:** Ranapratap Majee — AI Framework Architecture Specialist.
 * **License:** Managed and distributed under standard `MIT License` code parameters.
-
----
