@@ -16,10 +16,10 @@ The interaction between the high-density Streamlit user interface canvas, the Fa
 
 ```mermaid
 graph TD
-    %% Styling Configuration Profiles
+    %% Styling Configuration Profiles (Renamed 'graph' to 'graphCore' to dodge keyword collision)
     classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:2px,color:#F8FAFC;
     classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#F1F5F9;
-    classDef graph fill:#312E81,stroke:#818CF8,stroke-width:1px,color:#E2E8F0;
+    classDef graphCore fill:#312E81,stroke:#818CF8,stroke-width:1px,color:#E2E8F0;
     classDef infra fill:#064E3B,stroke:#34D399,stroke-width:2px,color:#ECFDF5;
 
     %% Presentation Layer
@@ -50,7 +50,7 @@ graph TD
             SynthNode[Citation Synthesizer Node: synthesize_research_node]
         end
     end
-    class CoreGraph,GovNode,RouteNode,FastNode,ResearchGraph,GatherNode,SynthNode graph;
+    class CoreGraph,GovNode,RouteNode,FastNode,ResearchGraph,GatherNode,SynthNode graphCore;
 
     %% Underpinning Infrastructure Layer
     subgraph Compute_And_Storage [Inference Infrastructure & Context Data Space]
