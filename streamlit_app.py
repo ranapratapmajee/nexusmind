@@ -205,6 +205,49 @@ def inject_minimal_overrides() -> None:
             margin-top: 6px !important;
             transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
         }
+        /* 6. Nexa Thinking Shimmer & Bouncing Dot Animation */
+        .thinking-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 1.25rem auto;
+            max-width: 720px;
+            width: 100%;
+            font-family: Inter, -apple-system, sans-serif;
+            font-size: 0.9rem;
+            color: #6366F1;
+            font-weight: 500;
+            opacity: 0.85;
+            animation: pulse-shimmer 2s infinite ease-in-out;
+        }
+
+        .thinking-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .thinking-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #6366F1;
+            border-radius: 50%;
+            display: inline-block;
+            animation: dot-bounce 1.4s infinite ease-in-out both;
+        }
+
+        .thinking-dot:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes dot-bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1.0); opacity: 1; }
+        }
+
+        @keyframes pulse-shimmer {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; letter-spacing: 0.5px; }
+        }
         
         div[data-testid="stChatInput"]:focus-within {
             border-color: rgba(99, 102, 241, 0.35) !important;
@@ -355,10 +398,16 @@ def process_pending_request() -> None:
     accumulated_reply = ""
     
     status_container = st.empty()
+    # Renders the high-end bouncing thinking container
     status_container.markdown(
-        "<div style='display: flex; align-items: center; gap: 8px; margin-top: 5px; opacity: 0.65; font-size: 0.85rem; font-family: monospace; margin-left: auto; margin-right: auto; max-width: 720px;'>"
-        "<i>Nexa is thinking...</i>"
-        "</div>", 
+        '<div class="thinking-container">'
+        '  <div class="thinking-dots">'
+        '    <div class="thinking-dot"></div>'
+        '    <div class="thinking-dot"></div>'
+        '    <div class="thinking-dot"></div>'
+        '  </div>'
+        '  <span>Nexa is thinking...</span>'
+        '</div>', 
         unsafe_allow_html=True
     )
 
@@ -369,6 +418,7 @@ def process_pending_request() -> None:
         for event in backend_stream:
             if event.get("type") == "token":
                 if not accumulated_reply:
+                    # Instantly clears the thinking bubble when the first actual token lands
                     status_container.empty()
                     st.markdown('<div class="bot-bubble">', unsafe_allow_html=True)
                     token_area = st.empty()

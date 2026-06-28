@@ -5,11 +5,9 @@ import shutil
 import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import StreamingResponse
-
 from app.settings import settings
 from app.core_graph import get_master_graph
-from app.state_models import GlobalState, ChatPathSelection, ModelTierSelection
-from app.api.schemas import ChatRequest
+from app.state_models import GlobalState, ChatPathSelection, ModelTierSelection, ChatRequest
 from app.rag_storage import run_ingest
 
 logger = logging.getLogger("nexusmind.routes")
@@ -50,7 +48,7 @@ async def get_chat_options():
 
 @router.post("/chat")
 async def handle_chat_message_stream(req: ChatRequest):
-    """Streams token deltas directly, passing explicit choices onto GlobalState payload properties."""
+    """Streams token deltas directly, or dumps static guardrail blocks instantly."""
     
     initial_state = GlobalState(
         raw_user_query=req.message,
@@ -60,22 +58,35 @@ async def handle_chat_message_stream(req: ChatRequest):
     graph_config = {"configurable": {"thread_id": req.session_id}}
 
     async def event_generator():
+        reply_streamed = False
         try:
             async for event in master_graph.astream_events(initial_state, graph_config, version="v2"):
                 kind = event.get("event")
                 metadata = event.get("metadata", {})
                 active_node = metadata.get("langgraph_node")
                 
-                if kind == "on_chain_end" and event.get("name") == "LangGraph":
-                    final_output = event["data"].get("output", {})
-                    metrics = final_output.get("performance_metrics_ms", {})
-                    yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
-
-                elif kind == "on_chat_model_stream":
+                # 1. Catch live streaming tokens from generation paths
+                if kind == "on_chat_model_stream":
                     if active_node in ["fast_conversational", "execute_research_subgraph", "synthesize_research"]:
                         token_chunk = event["data"].get("chunk")
                         if token_chunk and token_chunk.content:
+                            reply_streamed = True
                             yield f"data: {json.dumps({'type': 'token', 'delta': token_chunk.content})}\n\n"
+
+                # 2. Catch graph termination
+                elif kind == "on_chain_end" and event.get("name") == "LangGraph":
+                    final_output = event["data"].get("output", {})
+                    metrics = final_output.get("performance_metrics_ms", {})
+                    
+                    # If guardrails halted execution, no tokens ever streamed.
+                    # Send the rejection rationale instantly as a single event.
+                    if not reply_streamed:
+                        rejection = final_output.get("final_assistant_reply", "")
+                        if rejection:
+                            yield f"data: {json.dumps({'type': 'token', 'delta': rejection})}\n\n"
+                    
+                    # Yield performance markers to frontend
+                    yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
             yield "data: [DONE]\n\n"
             

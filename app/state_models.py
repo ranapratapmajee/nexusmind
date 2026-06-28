@@ -6,7 +6,7 @@ from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
 # =========================================================================
-# 🎛️ 1. OPERATIONAL UNIFIED ENUMS
+# OPERATIONAL UNIFIED ENUMS
 # =========================================================================
 
 class ChatPathSelection(str, Enum):
@@ -17,8 +17,24 @@ class ModelTierSelection(str, Enum):
     LOCAL = "LOCAL"
     CLOUD = "CLOUD"
 
+class ChatRequest(BaseModel):
+    """Parses raw inbound client JSON parameters sent by the frontend UI."""
+    session_id: str = "default"
+    message: str
+    
+    # Defaults set to NEXA_CHAT and LOCAL if frontend does not provide them
+    chat_selection: Optional[ChatPathSelection] = ChatPathSelection.NEXA_CHAT
+    model_selection: Optional[ModelTierSelection] = ModelTierSelection.LOCAL
+
+class ChatOptionsResponse(BaseModel):
+    """Broadcasts available parameters down to Streamlit drop-down components."""
+    default_chat_selection: Optional[ChatPathSelection] = ChatPathSelection.NEXA_CHAT
+    default_model_selection: Optional[ModelTierSelection] = ModelTierSelection.LOCAL
+    available_chat_paths: List[Dict[str, str]] = Field(default_factory=list)
+    available_model_tiers: List[Dict[str, str]] = Field(default_factory=list)
+
 # =========================================================================
-# 🧠 2. STATE GRAPH SCHEMA STRUCTURE
+# 🧠 STATE GRAPH SCHEMA STRUCTURE
 # =========================================================================
 
 class GlobalState(BaseModel):
@@ -26,20 +42,15 @@ class GlobalState(BaseModel):
     raw_user_query: str = ""
     forward_query: str = ""
     
-    # 📥 User Explicit Selections (Overrides from Frontend)
-    user_selected_path: Optional[ChatPathSelection] = None
-    user_selected_model: Optional[ModelTierSelection] = None
+    user_selected_path: Optional[ChatPathSelection] = ChatPathSelection.NEXA_CHAT
+    user_selected_model: Optional[ModelTierSelection] = ModelTierSelection.LOCAL
     
-    # ⚙️ Final Internal Orchestration Targets
-    # Defaults applied exactly per your requirements.
-    target_pipeline_key: ChatPathSelection = ChatPathSelection.NEXA_CHAT
+    target_router_path: ChatPathSelection = ChatPathSelection.NEXA_CHAT
     allocated_model_tier: ModelTierSelection = ModelTierSelection.LOCAL
     
-    # SAFETY HALT CONTROL
     guardrails_passed: bool = True
     final_assistant_reply: str = ""
     
-    # LangGraph Automatic Channel Merging Channels
     messages: Annotated[List[AnyMessage], add_messages] = Field(default_factory=list)
     pipeline_context: Annotated[Dict[str, Any], operator.or_] = Field(default_factory=dict)
     performance_metrics_ms: Annotated[Dict[str, int], operator.or_] = Field(default_factory=dict)
