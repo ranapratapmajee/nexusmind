@@ -14,7 +14,7 @@ NexusMind is engineered as a decoupled, multi-tier runtime system. The interacti
 graph TD
     classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:1.5px,color:#FFF;
     classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#FFF;
-    classDef graph fill:#312E81,stroke:#818CF8,stroke-width:1.5px,color:#FFF;
+    classDef graph_style fill:#312E81,stroke:#818CF8,stroke-width:1.5px,color:#FFF;
     classDef infra fill:#064E3B,stroke:#34D399,stroke-width:1.5px,color:#FFF;
 
     %% Presentation Layer
@@ -42,7 +42,7 @@ graph TD
             ResearchGraph[research_graph.py]
         end
     end
-    class InputGatewayNode,GovNode,RouteNode,FastNode,ResearchGraph graph;
+    class InputGatewayNode,GovNode,RouteNode,FastNode,ResearchGraph graph_style;
 
     %% Infrastructure Layer
     subgraph Infra_Layer [Storage & Compute]
