@@ -116,6 +116,11 @@ async def router_node(state: GlobalState) -> Dict[str, Any]:
             resolved_tier = resolved_tier or "LOCAL"
 
     ms = int((time.perf_counter() - start) * 1000)
+    
+    # 🌟 ADD THESE LOGGING LINES HERE TO EMIT CLEAR ROUTING PATHS
+    logger.info(f"🔀 [ROUTER NODE] Query Routing Decisions Calculated in {ms}ms")
+    logger.info(f"   └── 🛠️ Path Chosen: {resolved_path} | 🧠 Model Tier: {resolved_tier}")
+
     return {
         "target_pipeline_key": ChatPathSelection(resolved_path),
         "allocated_model_tier": ModelTierSelection(resolved_tier),

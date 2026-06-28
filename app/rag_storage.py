@@ -1,4 +1,4 @@
-# path: app/rag_storage.py
+# filename: app/rag_storage.py
 
 import os
 import hashlib
@@ -43,7 +43,7 @@ def get_vector_store() -> Chroma:
 
 async def run_ingest(target_path: str) -> None:
     """Processes file targets into the local ChromaDB collection container.
-    Combines LangChain's data types with ultra-fast concurrent async dispatch loops.
+    Throttles concurrent embeddings generations using an asyncio semaphore wrapper.
     """
     if os.path.isdir(target_path):
         files = [os.path.join(target_path, f) for f in os.listdir(target_path) if f.lower().endswith(".pdf")]
@@ -56,7 +56,17 @@ async def run_ingest(target_path: str) -> None:
     logger.info(f"💾 RAG High-Performance Worker started. Ingesting targets count: {len(files)}")
     
     vector_db = get_vector_store()
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    
+    # Optimized chunk size properties to fit within local model token limitations smoothly
+    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=120)
+
+    # Instantiate a semaphore to prevent Ollama from getting overwhelmed
+    concurrency_semaphore = asyncio.Semaphore(2)
+
+    async def throttled_add_documents(batch_slice) -> None:
+        """Worker wrapper honoring semaphore constraints to guard local server memory frames."""
+        async with concurrency_semaphore:
+            await vector_db.aadd_documents(batch_slice)
 
     for idx, path in enumerate(files, start=1):
         file_name = os.path.basename(path)
@@ -82,19 +92,18 @@ async def run_ingest(target_path: str) -> None:
                 }]
             )
 
-            # 🟢 HIGH-PERFORMANCE PATCH: Concurrent Batch Splicing Loop
-            # We slice the documents list and dispatch them concurrently into ChromaDB [1, 2]
+            # Splicing configuration loop 
             batch_size = 100
             async_tasks = []
             
             for i in range(0, len(documents), batch_size):
                 batch_slice = documents[i : i + batch_size]
-                # Enqueue the asynchronous generation task using the native async connector [1, 2]
-                async_tasks.append(vector_db.aadd_documents(batch_slice))
+                # Enqueue tasks via the throttled worker instead of firing directly
+                async_tasks.append(throttled_add_documents(batch_slice))
             
-            logger.info(f"  ⚡ Concurrently dispatching {len(async_tasks)} embedding batches to local GPU/CPU queues...")
+            logger.info(f"  ⚡ Throttled dispatch sequence initialized. Processing {len(async_tasks)} batches across limited queues...")
             
-            # Fire all async embedding worker tasks at once across active channels [1, 2]
+            # Concurrently process the queues while sticking to our semaphore bounds
             await asyncio.gather(*async_tasks)
             
             logger.info(f"  ✅ Complete [{idx}/{len(files)}] Loaded: '{file_name}' ({len(documents)} chunks)")

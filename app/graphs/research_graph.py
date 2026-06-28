@@ -1,6 +1,7 @@
-# path: app/graphs/research_graph.py
+# filename: app/graphs/research_graph.py
 
 import time
+import logging
 from typing import Dict, Any
 from langgraph.graph import START, END, StateGraph
 from langchain_core.messages import AIMessage
@@ -10,6 +11,9 @@ from app.state_models import GlobalState
 from app.llm_gateway import get_model_by_tier
 from app.tools.chroma_search import search_local_vectorbase
 from app.tools.web_search import search_live_web
+
+# Obtain the exact logger mapping matching your project structure
+logger = logging.getLogger("nexusmind.research_graph")
 
 # =========================================================================
 # 📝 CENTRALIZED PROMPT LAYOUT SECTION
@@ -36,23 +40,40 @@ async def gather_sources_node(state: GlobalState) -> Dict[str, Any]:
     # Safely look for search term queries using your renamed forward_query fallback variable
     queries = state.pipeline_context.get("expanded_queries") or [state.forward_query]
     
+    logger.info("📡 [RESEARCH SUBGRAPH] Initializing Parallel Retrieval Matrix...")
+    logger.info(f"   └── 🔍 Processing Query Variations: {queries}")
+    
     # 1. Execute local vector lookup
+    logger.info("   🗄️ Invoking ChromaDB Vector Store client...")
     chunks, best_dist, has_grounding = await search_local_vectorbase(queries)
     grounding_status = "confirmed" if has_grounding else "below threshold"
     
+    logger.info(f"   └── 📥 ChromaDB Search Results: Retrieved {len(chunks)} chunks (Best Proximity Dist: {best_dist:.4f} -> Grounding: {grounding_status})")
+    
     # 2. Execute dynamic web fallback based on vector certainty parameters
     web_sources = []
+    triggered_web_search = False
+    
     if not has_grounding or state.pipeline_context.get("force_deep_research", False):
+        triggered_web_search = True
+        logger.info("   🌐 Grounding below threshold or Deep Research active! Launching live Trafilatura web-scraping cluster...")
         web_sources = await search_live_web(queries)
+        logger.info(f"   └── 📥 Web Search Results: Extracted {len(web_sources)} live web documents.")
+    else:
+        logger.info("   ⏭️ Vector context grounding secure. Skipping live web-scraping pass.")
 
-    # 3. Process strings into an unified reference body
+    # 3. Print a clean summary matrix to your shell console
+    logger.info("   📊 FINAL DATA MATRIX RETRIEVAL SUMMARY:")
+    logger.info(f"      ├── ChromaDB Chunks Loaded : {len(chunks)}")
+    logger.info(f"      └── Web Scraper Loaded     : {len(web_sources)} (Triggered: {triggered_web_search})")
+
+    # Process strings into an unified reference body
     context_lines = [f"[LOCAL MATERIAL]\n{c.get('document', '')}" for c in chunks] + \
                     [f"[WEB SOURCE: {s['title']} | URL: {s['url']}]\n{s['content']}" for s in web_sources]
     formatted_string = "\n\n---\n\n".join(context_lines)
 
     ms = int((time.perf_counter() - start_time) * 1000)
     
-    # Return updates natively. LangGraph blends these dictionary changes automatically!
     return {
         "pipeline_context": {
             "retrieved_chunks": chunks,
@@ -79,11 +100,10 @@ async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
     """Node: Synthesizes gathered dataset into a citation-tracked technical reply."""
     start_time = time.perf_counter()
     
-    # Resolve pre-allocated model tier cleanly via the unified gateway factory 
     model = get_model_by_tier(state.allocated_model_tier)
-    
-    # Extract historical dataset from the pipeline state dictionary
     context_data = state.pipeline_context.get("formatted_context_string", "No reference data loaded.")
+    
+    logger.info("🧠 [RESEARCH SUBGRAPH] Dispatching dataset to Synthesis Generation Node...")
     
     try:
         response = await (PROMPT_SYNTHESIS | model).ainvoke({
@@ -96,6 +116,7 @@ async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
         response = AIMessage(content=reply)
 
     ms = int((time.perf_counter() - start_time) * 1000)
+    logger.info(f"✅ [RESEARCH SUBGRAPH] Synthesis generation complete in {ms}ms.")
 
     return {
         "final_assistant_reply": reply,
@@ -115,5 +136,4 @@ builder.add_edge(START, "gather_sources")
 builder.add_edge("gather_sources", "synthesize_research")
 builder.add_edge("synthesize_research", END)
 
-# Expose compiled sub-graph topology safely to app/core_graph.py
 compiled_research_graph = builder.compile()
