@@ -1,5 +1,3 @@
-# filename: frontend/streamlit_app.py
-
 import json
 import uuid
 from typing import Any, Dict, Generator
@@ -38,12 +36,14 @@ def ensure_system_initialized() -> None:
             st.session_state.model_catalog = {m["id"]: m["label"] for m in data.get("available_model_tiers", [])}
             st.session_state.backend_online = True
         except Exception:
-            st.session_state.available_modes = {"AUTO": "🧠 Auto Orchestrate", "NEXA_CHAT": "✨ Nexa Chat", "RESEARCH": "🔬 Deep Research"}
-            st.session_state.model_catalog = {"AUTO": "🤖 Auto Model", "LOCAL": "💻 Local Model", "CLOUD": "☁️ Cloud Model"}
+            # 🟢 Clean Fallback Catalog completely stripped of AUTO parameters
+            st.session_state.available_modes = {"NEXA_CHAT": "✨ Nexa Chat", "RESEARCH": "🔬 Deep Research"}
+            st.session_state.model_catalog = {"LOCAL": "💻 Local Model", "CLOUD": "☁️ Cloud Model"}
             st.session_state.backend_online = False
         
-        st.session_state.selected_mode = "AUTO"
-        st.session_state.selected_model_id = "AUTO"
+        # 🟢 Defaults point cleanly to explicit enum string identifiers
+        st.session_state.selected_mode = "NEXA_CHAT"
+        st.session_state.selected_model_id = "LOCAL"
         st.session_state.options_loaded = True
 
 

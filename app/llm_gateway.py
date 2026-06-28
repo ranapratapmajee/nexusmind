@@ -1,5 +1,3 @@
-# path: app/llm_gateway.py
-
 import logging
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_ollama import ChatOllama
@@ -16,22 +14,23 @@ def get_local_model() -> BaseChatModel:
         model=settings.OLLAMA_MODEL,
         temperature=0.2,
         num_predict=4096,
-        timeout=None  # 🟢 UNLIMITED TIMEOUT BOUNDARY: Local models can think indefinitely
+        timeout=None  
     )
 
 def get_cloud_model() -> BaseChatModel:
     """Initializes cloud client with automatic local hardware backup fallback."""
     api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
     if not api_key:
-        logger.warning("Cloud API credentials missing. Falling back to local silicon client.")
+        logger.warning("Cloud API credentials missing. Falling back directly to local silicon client.")
         return get_local_model()
         
     cloud_model = ChatGoogleGenerativeAI(
         api_key=api_key,
         model=settings.GEMINI_MODEL,
         temperature=0.2,
-        timeout=None  # 🟢 UNLIMITED TIMEOUT BOUNDARY: Prevents API gateway network drops
+        timeout=None  
     )
+    
     return cloud_model.with_fallbacks([get_local_model()])
 
 def get_model_by_tier(tier: ModelTierSelection) -> BaseChatModel:

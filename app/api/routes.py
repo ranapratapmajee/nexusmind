@@ -1,5 +1,3 @@
-# filename: app/api/routes.py
-
 import os
 import re
 import json
@@ -24,42 +22,40 @@ async def get_chat_options():
     Delivers rich presentation metadata directly to the client interface.
     Keeps the frontend UI completely decoupled from internal configuration names.
     """
-    # Map raw Enum values directly to presentation titles
     mode_labels = {
-        ChatPathSelection.AUTO.value: "🧠 Auto Orchestrate",
         ChatPathSelection.NEXA_CHAT.value: "✨ Nexa Chat",
         ChatPathSelection.RESEARCH.value: "🔬 Deep Research"
     }
     
     model_labels = {
-        ModelTierSelection.AUTO.value: "🤖 Auto Model",
         ModelTierSelection.LOCAL.value: "💻 Local Model",
         ModelTierSelection.CLOUD.value: "☁️ Cloud Model"
     }
 
+    # 🟢 Statically aligned strictly to explicit enums only
+    available_paths = [
+        {"id": e.value, "label": mode_labels.get(e.value, e.value)} for e in ChatPathSelection
+    ]
+    
+    available_tiers = [
+        {"id": e.value, "label": model_labels.get(e.value, e.value)} for e in ModelTierSelection
+    ]
+
     return {
-        "default_chat_selection": ChatPathSelection.AUTO.value,
-        "default_model_selection": ModelTierSelection.AUTO.value,
-        "available_chat_paths": [
-            {"id": e.value, "label": mode_labels.get(e.value, e.value)} 
-            for e in ChatPathSelection
-        ],
-        "available_model_tiers": [
-            {"id": e.value, "label": model_labels.get(e.value, e.value)} 
-            for e in ModelTierSelection
-        ]
+        "default_chat_selection": ChatPathSelection.NEXA_CHAT.value,
+        "default_model_selection": ModelTierSelection.LOCAL.value,
+        "available_chat_paths": available_paths,
+        "available_model_tiers": available_tiers
     }
 
 @router.post("/chat")
 async def handle_chat_message_stream(req: ChatRequest):
-    """Streams token deltas directly, handling client UI payload translation values cleanly."""
+    """Streams token deltas directly, passing explicit choices onto GlobalState payload properties."""
     
     initial_state = GlobalState(
         raw_user_query=req.message,
-        pipeline_context={
-            "chat_selection": req.chat_selection,
-            "model_selection": req.model_selection
-        }
+        user_selected_path=req.chat_selection,
+        user_selected_model=req.model_selection
     )
     graph_config = {"configurable": {"thread_id": req.session_id}}
 
@@ -70,13 +66,11 @@ async def handle_chat_message_stream(req: ChatRequest):
                 metadata = event.get("metadata", {})
                 active_node = metadata.get("langgraph_node")
                 
-                # Case A: Metrics Tracking Profile
                 if kind == "on_chain_end" and event.get("name") == "LangGraph":
                     final_output = event["data"].get("output", {})
                     metrics = final_output.get("performance_metrics_ms", {})
                     yield f"data: {json.dumps({'type': 'metrics', 'data': metrics})}\n\n"
 
-                # Case B: Conversational Token Streams Only
                 elif kind == "on_chat_model_stream":
                     if active_node in ["fast_conversational", "execute_research_subgraph", "synthesize_research"]:
                         token_chunk = event["data"].get("chunk")
@@ -87,7 +81,6 @@ async def handle_chat_message_stream(req: ChatRequest):
             
         except Exception as graph_err:
             logger.error(f"Streaming sequence error: {graph_err}")
-            # FIXED: Changed key from 'detail' to 'reply' to match frontend structural expectations
             yield f"data: {json.dumps({'type': 'error', 'reply': f'💥 Processing Pipeline Fault: {str(graph_err)}'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

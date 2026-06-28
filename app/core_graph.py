@@ -1,5 +1,3 @@
-# path: app/core_graph.py
-
 import time
 import logging
 from typing import Any, Dict, Literal
@@ -32,8 +30,7 @@ PROMPT_ROUTER = ChatPromptTemplate.from_messages([
         "You are an expert system orchestrator intent routing classifier.\n"
         "Analyze the user's technical query carefully and decide parameters.\n"
         "Choose 'RESEARCH' if the query asks for deep explanations, multi-step designs, architectures, or comparisons.\n"
-        "Choose 'NEXA_CHAT' for general quick syntax lookups, questions, or greetings.\n\n"
-        "MODEL SELECTION RULE: Always default chosen_tier to 'LOCAL' unless explicitly requested otherwise."
+        "Choose 'NEXA_CHAT' for general quick syntax lookups, questions, or greetings.\n"
     )),
     ("human", "Route this developer query: {query}")
 ])
@@ -60,16 +57,36 @@ class GuardrailEvaluation(BaseModel):
 
 class AutonomousRouterDecision(BaseModel):
     chosen_path: Literal["NEXA_CHAT", "RESEARCH"] = Field(description="RESEARCH for multi-step technical design. NEXA_CHAT for generic queries.")
-    chosen_tier: Literal["LOCAL", "CLOUD"] = Field(description="Defaults strictly to LOCAL unless cloud reasoning is explicitly required.")
 
 # =========================================================================
 # 🎛️ CORE NODE EXECUTION LOGIC
 # =========================================================================
 
+async def input_gateway_node(state: GlobalState) -> Dict[str, Any]:
+    """🏁 Step 1: Entry Point. Initialize model allocation and explicit paths from state variables."""
+    
+    # 🧠 Model Selection: Use explicit user choice if present, otherwise default strictly to LOCAL
+    if state.user_selected_model is not None:
+        resolved_tier = state.user_selected_model
+    else:
+        resolved_tier = ModelTierSelection.LOCAL
+    
+    # 🔀 Path Target: Use explicit path override if provided, otherwise leave it None for the router to handle
+    if state.user_selected_path is not None:
+        resolved_path = state.user_selected_path
+    else:
+        resolved_path = None
+
+    return {
+        "allocated_model_tier": resolved_tier,
+        "target_pipeline_key": resolved_path
+    }
+
 async def governance_node(state: GlobalState) -> Dict[str, Any]:
     start = time.perf_counter()
     try:
-        structured_model = get_local_model().with_structured_output(GuardrailEvaluation)
+        # Uses the initialized model tier for guardrails as configured in Step 1
+        structured_model = get_model_by_tier(state.allocated_model_tier).with_structured_output(GuardrailEvaluation)
         evaluation = await (PROMPT_GOVERNANCE | structured_model).ainvoke({"query": state.raw_user_query})
         ms = int((time.perf_counter() - start) * 1000)
         
@@ -94,38 +111,32 @@ async def governance_node(state: GlobalState) -> Dict[str, Any]:
         }
 
 async def router_node(state: GlobalState) -> Dict[str, Any]:
+    """🔀 Step 3: Route path. Respects pipeline_init_node override or runs LLM classification fallback."""
     start = time.perf_counter()
     
-    raw_ui_chat = state.pipeline_context.get("chat_selection", ChatPathSelection.AUTO)
-    raw_ui_model = state.pipeline_context.get("model_selection", ModelTierSelection.AUTO)
-    
-    ui_chat = raw_ui_chat.value if hasattr(raw_ui_chat, "value") else str(raw_ui_chat)
-    ui_model = raw_ui_model.value if hasattr(raw_ui_model, "value") else str(raw_ui_model)
-    
-    resolved_path = None if ui_chat == "AUTO" else ui_chat
-    resolved_tier = None if ui_model == "AUTO" else ui_model
+    # Check if a path was explicitly provided by the user/pipeline_init
+    resolved_path = state.target_pipeline_key
 
-    if resolved_path is None or resolved_tier is None:
+    # 🔮 Dynamic Routing Fallback: If no path is selected, let the LLM decide
+    if resolved_path is None:
         try:
-            structured_router = get_local_model().with_structured_output(AutonomousRouterDecision)
+            # Strictly uses the pre-allocated model tier settled by pipeline_init_node
+            structured_router = get_model_by_tier(state.allocated_model_tier).with_structured_output(AutonomousRouterDecision)
             decision = await (PROMPT_ROUTER | structured_router).ainvoke({"query": state.forward_query})
-            resolved_path = resolved_path or decision.chosen_path
-            resolved_tier = resolved_tier or decision.chosen_tier
-        except Exception:
-            resolved_path = resolved_path or "NEXA_CHAT"
-            resolved_tier = resolved_tier or "LOCAL"
+            resolved_path = ChatPathSelection(decision.chosen_path)
+        except Exception as e:
+            logger.error(f"Routing inference failed, defaulting to NEXA_CHAT: {e}")
+            resolved_path = ChatPathSelection.NEXA_CHAT
 
     ms = int((time.perf_counter() - start) * 1000)
     
-    # 🌟 ADD THESE LOGGING LINES HERE TO EMIT CLEAR ROUTING PATHS
     logger.info(f"🔀 [ROUTER NODE] Query Routing Decisions Calculated in {ms}ms")
-    logger.info(f"   └── 🛠️ Path Chosen: {resolved_path} | 🧠 Model Tier: {resolved_tier}")
+    logger.info(f"   └── 🛠️ Path Chosen: {resolved_path.value} | 🧠 Model Tier: {state.allocated_model_tier.value}")
 
     return {
-        "target_pipeline_key": ChatPathSelection(resolved_path),
-        "allocated_model_tier": ModelTierSelection(resolved_tier),
+        "target_pipeline_key": resolved_path,
         "performance_metrics_ms": {"router_ms": ms},
-        "messages": [AIMessage(content="", additional_kwargs={"status": "🧠", "telemetry": f"Path: {resolved_path}, Tier: {resolved_tier}"})]
+        "messages": [AIMessage(content="", additional_kwargs={"status": "🧠", "telemetry": f"Path: {resolved_path.value}, Tier: {state.allocated_model_tier.value}"})]
     }
 
 async def fast_conversational_node(state: GlobalState) -> Dict[str, Any]:
@@ -158,21 +169,25 @@ async def response_node(state: GlobalState) -> Dict[str, Any]:
 
 def get_master_graph():
     builder = StateGraph(GlobalState)
+    builder.add_node("input_gateway", input_gateway_node)
     builder.add_node("governance", governance_node)
     builder.add_node("router", router_node)
     builder.add_node("fast_conversational", fast_conversational_node)
     builder.add_node("execute_research_subgraph", compiled_research_graph)
     builder.add_node("response", response_node)
     
-    builder.add_edge(START, "governance")
+    # Graph execution structure starting with initialization
+    builder.add_edge(START, "input_gateway")
+    builder.add_edge("input_gateway", "governance")
     
-    # 🟢 NATIVE CONTROL CONDITIONAL BRANCH: No compute tier objects required
+    # Guardrails assessment branch
     builder.add_conditional_edges(
         "governance",
         lambda state: "continue" if state.guardrails_passed else "halt",
         {"halt": "response", "continue": "router"}
     )
     
+    # Execution pathway branch mapping directly to target pipeline key string values
     builder.add_conditional_edges(
         "router",
         lambda state: state.target_pipeline_key.value,

@@ -2,86 +2,70 @@
 
 Zero-Friction Technical Exploration, Grounded RAG, and Deep Analytics.
 
-NexusMind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance FastAPI gateway alongside a compiled, single-tiered native LangGraph Orchestration Network to route conversational prompts dynamically based on semantic complexity. By leveraging a centralized, custom-engineered user interface mimicking premium modern workspaces (like Gemini), the interface strips out bloat and wraps messaging rows directly in zero-overhead HTML flex arrays. System controls are compressed into dual top-of-chatbox micro utilities managing the active conversation pipeline mode (🧠 Auto Orchestrate, ✨ Nexa Chat, 🔬 Deep Research) and the compute infrastructure runtime selector (🤖 Auto Model, LOCAL, CLOUD) natively anchored inside a single compact boundary footprint.
+NexusMind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance FastAPI gateway alongside a compiled, single-tiered native LangGraph Orchestration Network to route conversational prompts dynamically based on semantic complexity. By leveraging a centralized, custom-engineered user interface mimicking premium modern workspaces (like Gemini), the interface strips out bloat and wraps messaging rows directly in zero-overhead HTML flex arrays. System controls are compressed into dual top-of-chatbox micro utilities managing the active conversation pipeline mode (✨ Nexa Chat, 🔬 Deep Research) and the compute infrastructure runtime selector (LOCAL, CLOUD) natively anchored inside a single compact boundary footprint.
 
-------------------------------
+---
 
 ## 🏗️ Technical System Architecture
+
 NexusMind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive, avatar-free Streamlit custom presentation canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
 
 ```mermaid
 graph TD
-    %% Styling Configuration Profiles
-    classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:2px,color:#F8FAFC;
-    classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#F1F5F9;
-    classDef graphCore fill:#312E81,stroke:#818CF8,stroke-width:1px,color:#E2E8F0;
-    classDef infra fill:#064E3B,stroke:#34D399,stroke-width:2px,color:#ECFDF5;
+    classDef ui fill:#1E1B4B,stroke:#6366F1,stroke-width:1.5px,color:#FFF;
+    classDef api fill:#0F172A,stroke:#38BDF8,stroke-width:1.5px,color:#FFF;
+    classDef graph fill:#312E81,stroke:#818CF8,stroke-width:1.5px,color:#FFF;
+    classDef infra fill:#064E3B,stroke:#34D399,stroke-width:1.5px,color:#FFF;
 
     %% Presentation Layer
-    subgraph Streamlit_Frontend [Streamlit Presentation Workspace :8501]
-        UI[Canvas Overrides: inject_minimal_overrides]
-        Bubble[Custom DOM Renderer: render_message_bubble]
-        Selectors[Modular Utilities: Mode & Model selectbox]
+    subgraph UI_Layer [Streamlit :8501]
+        UI[Custom Canvas]
+        Selectors[Mode & Model Utilities]
     end
-    class UI,Bubble,Selectors ui;
+    class UI,Selectors ui;
 
-    %% Communication Gateway Layer
-    subgraph FastAPI_Backend [FastAPI Application Gateway :8001]
-        Router[API Endpoint Route: /api/chat]
-        Schemas[Data Contracts Validation: schemas.py]
+    %% Communication Layer
+    subgraph API_Layer [FastAPI :8001]
+        Router[routes.py /api/chat]
+        Schemas[schemas.py]
     end
     class Router,Schemas api;
 
     %% Orchestration Graph Layer
-    subgraph LangGraph_Engine [Core Graph State Machine Grid]
-        CoreGraph[Master Orchestrator: core_graph.py]
-        GovNode[Edge Interceptor Node: governance_node]
-        RouteNode[Intent Classifier Node: router_node]
-        FastNode[Fast Local Path Node: fast_conversational_node]
+    subgraph Graph_Layer [LangGraph Grid]
+        InputGatewayNode[input_gateway_node]
+        GovNode[governance_node]
+        RouteNode[router_node]
+        FastNode[fast_conversational_node]
         
-        subgraph SubAgent_Network [Independent Research Subgraph]
-            ResearchGraph[Research Topology: research_graph.py]
-            GatherNode[Data Discovery Node: gather_sources_node]
-            SynthNode[Citation Synthesizer Node: synthesize_research_node]
+        subgraph Sub_Graph [Research Subgraph]
+            ResearchGraph[research_graph.py]
         end
     end
-    class CoreGraph,GovNode,RouteNode,FastNode,ResearchGraph,GatherNode,SynthNode graphCore;
+    class InputGatewayNode,GovNode,RouteNode,FastNode,ResearchGraph graph;
 
-    %% Underpinning Infrastructure Layer
-    subgraph Compute_And_Storage [Inference Infrastructure & Context Data Space]
-        OllamaCompletions[Local Ollama: qwen2.5-coder:7b :11434]
-        ChromaDB[Docker Desktop Sandbox: ChromaDB Vector Space :8000]
-        WebScrape[Async Scraper Subsystem: trafilatura engine]
-        GeminiCloud[Cloud Edge Cloud API: gemini-2.5-flash]
+    %% Infrastructure Layer
+    subgraph Infra_Layer [Storage & Compute]
+        Ollama[Local Ollama]
+        Chroma[ChromaDB Container]
+        GeminiCloud[Google Gemini API]
     end
-    class OllamaCompletions,ChromaDB,WebScrape,GeminiCloud infra;
+    class Ollama,Chroma,GeminiCloud infra;
 
-    %% Data Pipeline Interaction Lines
-    UI -->|1. Loop Custom Component Matrix| Bubble
-    Selectors -->|2. Inject Global Config States| Router
-    Router -->|3. Initialize GlobalState & .astream_events| CoreGraph
+    %% Connections
+    Selectors -->|State Overrides| Router
+    Router -->|Initialize GlobalState| InputGatewayNode
+    InputGatewayNode -->|Set explicit Model/Mode| GovNode
+    GovNode -->|Conditional Check| RouteNode
+    RouteNode -->|NEXA_CHAT Path| FastNode
+    RouteNode -->|RESEARCH Path| ResearchGraph
     
-    CoreGraph --> GovNode
-    GovNode -->|4. Guardrail & PII Masking Pass| RouteNode
+    FastNode -->|Invoke Allocated Model| Ollama
+    ResearchGraph -->|Vector Search| Chroma
+    ResearchGraph -->|Synthesis Prompt| GeminiCloud
     
-    %% Conditional Branching Elements
-    RouteNode -->|5a. Heuristic Chat Path Routing| FastNode
-    RouteNode -->|5b. Research Subgraph Dynamic Path Trigger| ResearchGraph
-    
-    %% Compute Integrations
-    FastNode -->|6. Unified Gateway Factory Model| OllamaCompletions
-    
-    ResearchGraph --> GatherNode
-    GatherNode -->|7a. Vector Proximity Query| ChromaDB
-    GatherNode -->|7b. Multiquery Fallback Scrape| WebScrape
-    GatherNode --> SynthNode
-    SynthNode -->|8. Grounded Context Model Call| GeminiCloud
-    
-    %% Response Aggregation and Real-Time SSE Wire Output
-    FastNode -->|9a. Append Native HTML Streaming Matrix| Router
-    SynthNode -->|9b. Append Native HTML Streaming Matrix| Router
-    
-    Router -->|10. Stream SSE Event Data Packets| UI
+    Ollama & GeminiCloud -.->|SSE Token Stream| Router
+    Router -->|Event Packets| UI
 
 ```
 
@@ -90,49 +74,35 @@ graph TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Dev as Engineer (UI Layout)
-    participant ST as Streamlit Frontend (:8501)
-    participant API as FastAPI Gateway (:8001)
-    participant CG as LangGraph Core Engine
-    participant SG as LangGraph Research Subgraph
-    participant DB as ChromaDB Container (:8000)
-    participant OL as Local Ollama Serve (:11434)
-    participant GEM as Cloud Gemini Cloud API
+    actor Dev as Engineer (UI)
+    participant ST as Streamlit (:8501)
+    participant API as FastAPI (:8001)
+    participant CG as LangGraph Core
+    participant SG as Research Subgraph
 
-    %% Conversational Loop
-    Dev->>ST: Submits Query (Capsule Chat Input)
-    ST->>API: HTTP POST /api/chat (ChatRequest SSE Stream)
+    Dev->>ST: Submits Technical Query
+    ST->>API: POST /api/chat (Payload Variables)
     API->>CG: astream_events(GlobalState)
     
-    critical Edge Governance
-        CG->>CG: LLM Structured Output Guardrail Check
-        CG->>CG: Mask PII into forward_query string variable
-    end
-
-    alt Chat Path Triggered
-        CG->>OL: Stream Chat completions chunk token loop
-        OL-->>CG: Yields Text Token Delta Chunks
-    end
+    Note over CG: input_gateway_node:<br/>Locks selected Model & Mode overrides
     
-    alt Research Path Triggered
-        CG->>SG: Cascades State down to Subgraph Node
-        
-        par Parallel Retrieval Matrix
-            SG->>DB: Query Collection Vector Space (Top-K)
-            DB-->>SG: Array Text Chunks & Proximity Scores
-        and Fallback Web Lookup
-            SG->>SG: Run trafilatura Live Page Extraction
-        end
-        
-        SG->>GEM: Dispatches Enriched Grounded Context Prompt
-        GEM-->>SG: Yields Citation-Tracked Token Delta Chunks
-        SG-->>CG: Merges Subgraph Results into State Array
+    critical Edge Governance
+        CG->>CG: governance_node (Guardrail Evaluation)
     end
 
-    CG->>CG: Calculates performance_metrics_ms values
-    CG-->>API: Emits trace, metrics, and token SSE frames
-    API-->>ST: Streams data packets over event-stream
-    ST->>Dev: Appends to native .chat-row without layout shifting
+    Note over CG: router_node evaluates pathways
+
+    alt Mode == NEXA_CHAT
+        CG->>CG: fast_conversational_node
+        CG-->>API: Stream local Ollama delta chunks
+    else Mode == RESEARCH
+        CG->>SG: execute_research_subgraph
+        Note over SG: Performs Vector Search & Ingestion Synthesis
+        SG-->>API: Stream Gemini cloud delta chunks
+    end
+
+    API-->>ST: SSE Event Packet Transmission
+    ST->>Dev: Appends to DOM chat rows without jitter
 
 ```
 
@@ -142,43 +112,23 @@ When a technical reference manual or PDF is uploaded via the custom Streamlit si
 
 ```mermaid
 graph TD
-    %% Styling Profile Configurations
-    classDef fileStyle fill:#1E293B,stroke:#6366F1,stroke-width:2px,color:#F8FAFC;
-    classDef processStyle fill:#312E81,stroke:#4F46E5,stroke-width:1px,color:#E2E8F0;
-    classDef infraStyle fill:#064E3B,stroke:#10B981,stroke-width:2px,color:#ECFDF5;
+    classDef engine fill:#1E293B,stroke:#6366F1,stroke-width:1.5px,color:#FFF;
+    classDef storage fill:#064E3B,stroke:#10B981,stroke-width:1.5px,color:#FFF;
 
-    %% Workflow Structures
-    Upload[📁 User Drops Reference PDF in Sidebar UI] -->|HTTP Multipart Binary Stream| Route[⚡ FastAPI Endpoint: /api/rag/upload]
+    Upload[📁 Drop Reference PDF] -->|Multipart Binary Stream| Route[⚡ FastAPI: /api/rag/upload]
+    Route -->|Background Thread Task| Worker[⚙️ run_ingest workflow]
     
-    subgraph Local Disk Operations [Host Environment OS]
-        Route --> Write[💾 Write Binary Chunk stream to disk]
-        Write --> StorageDir[./data/ File Cluster Vault]
-        class StorageDir fileStyle;
+    subgraph Processing_Engine [Atomic Ingestion & Chunking]
+        Worker --> Extract[📝 Text Extraction]
+        Extract --> Tokenize[✂️ Recursive Chunker Splitting]
+        Tokenize --> Vectorize[🧬 Ollama Embeddings Generation]
     end
-
-    Route --> IngestWorker[⚙️ Background Process Thread: run_ingest]
-    class IngestWorker processStyle;
-    StorageDir --> IngestWorker
-
-    subgraph RAG Compilation Sequence [Atomic Chunker Engine]
-        IngestWorker --> HashCheck[🔒 Evict Duplicate Collision doc_hash IDs]
-        HashCheck --> TextStream[📝 Extract Raw Text via pdfminer]
-        TextStream --> Chunking[✂️ Generate Split text via RecursiveCharacterTextSplitter]
-    end
-    class HashCheck,TextStream,Chunking processStyle;
-
-    subgraph Asynchronous Vector Pipeline [Ollama Compute Cluster]
-        Chunking --> EmbedAPI[🚀 Local LangChain OllamaEmbeddings Client]
-        EmbedAPI --> EmbedMerge[🧬 Bind document chunks & metadata maps]
-    end
-    class EmbedAPI,EmbedMerge processStyle;
+    class Worker,Extract,Tokenize,Vectorize engine;
     
-    subgraph Persistent Storage Database [Docker Desktop Sandbox]
-        EmbedMerge --> Chroma[🗄️ ChromaDB Collection Server Container :8000]
-        class Chroma infraStyle;
+    subgraph Storage_Space [Docker Database]
+        Vectorize --> Chroma[🗄️ ChromaDB Collection :8000]
     end
-
-    Chroma --> Log[✅ Log standard terminal confirmation metrics]
+    class Chroma storage;
 
 ```
 
@@ -233,8 +183,7 @@ nexusmind/
 │   └── graphs/                # INDEPENDENT COMPILATION AGENT SUBGRAPHS
 │       └── research_graph.py  # Source parsing, node loops, deep query synthesis
 │
-└── frontend/                  # STREAMLIT UI DEVELOPMENT WORKSPACE
-    └── streamlit_app.py       # Main presentation interface canvas utilizing the Inter sans font-stack
+└── streamlit_app.py           # Main presentation interface canvas utilizing the Inter sans font-stack
 
 ```
 
@@ -242,11 +191,10 @@ nexusmind/
 
 ## 📈 Execution Profiles Routing Matrix
 
-The orchestrator's router node maps pipeline execution pathways based on the layout configuration parameter context and input intent classification weights:
+The orchestrator's initialization and router nodes map pipeline execution pathways based on layout configuration parameter context and input intent classification weights:
 
 | Selected Chat Mode | Component Selection Target | Execution Target Pipeline | Active LLM Allocation Model | Dynamic System Prompt Persona |
 | --- | --- | --- | --- | --- |
-| **🧠 Auto Orchestrate** | Modular `st.selectbox` left-rail utility | Automated router path classification pass | Evaluated dynamically based on query profile | Unified, semantic context system controller prompt |
 | **✨ Nexa Chat** | Modular `st.selectbox` left-rail utility | `fast_conversational` node pass | Local Ollama instance via `qwen2.5-coder:7b` | `standard_utility` utility interface prompt |
 | **🔬 Deep Research** | Modular `st.selectbox` left-rail utility | Native sub-network `execute_research_subgraph` node | Cloud Google GenAI `gemini-2.5-flash` *(Ollama Fallback)* | Academically anchored `socratic_professor` layout prompt |
 
@@ -291,10 +239,10 @@ OFFLINE_PDF_DIR=./data
 
 ```bash
 # Add execution parameters permissions to the script file
-chmod +x run_nexusmind.sh
+chmod +x run.sh
 
 # Fire the active runtime sequence orchestration shell script
-./run_nexusmind.sh
+./run.sh
 
 ```
 
