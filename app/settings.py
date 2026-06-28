@@ -1,7 +1,7 @@
 # path: app/settings.py
 
 from typing import Optional, Any
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AppSettings(BaseSettings):
@@ -11,7 +11,7 @@ class AppSettings(BaseSettings):
     # ====== Environment ======
     APP_NAME: str = "NexusMind"
     APP_ENV: str = "development"
-    bot_name: str = "NexaEngine"
+    bot_name: str = "Nexa"
 
     # ====== API (FastAPI) ======
     API_HOST: str = "0.0.0.0"

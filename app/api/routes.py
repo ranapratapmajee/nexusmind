@@ -1,4 +1,4 @@
-# path: app/api/routes.py
+# filename: app/api/routes.py
 
 import os
 import re
@@ -7,30 +7,52 @@ import shutil
 import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage
 
 from app.settings import settings
 from app.core_graph import get_master_graph
 from app.state_models import GlobalState, ChatPathSelection, ModelTierSelection
-from app.api.schemas import ChatOptionsResponse, ChatRequest
+from app.api.schemas import ChatRequest
 from app.rag_storage import run_ingest
 
 logger = logging.getLogger("nexusmind.routes")
 router = APIRouter(prefix="/api", tags=["chat"])
 master_graph = get_master_graph()
 
-@router.get("/chat/options", response_model=ChatOptionsResponse)
-async def get_chat_options() -> ChatOptionsResponse:
-    return ChatOptionsResponse(
-        default_chat_selection=ChatPathSelection.AUTO,
-        default_model_selection=ModelTierSelection.AUTO,
-        available_chat_paths=[e.value for e in ChatPathSelection],
-        available_model_tiers=[e.value for e in ModelTierSelection]
-    )
+@router.get("/chat/options")
+async def get_chat_options():
+    """
+    Delivers rich presentation metadata directly to the client interface.
+    Keeps the frontend UI completely decoupled from internal configuration names.
+    """
+    # Map raw Enum values directly to presentation titles
+    mode_labels = {
+        ChatPathSelection.AUTO.value: "🧠 Auto Orchestrate",
+        ChatPathSelection.NEXA_CHAT.value: "✨ Nexa Chat",
+        ChatPathSelection.RESEARCH.value: "🔬 Deep Research"
+    }
+    
+    model_labels = {
+        ModelTierSelection.AUTO.value: "🤖 Auto Model",
+        ModelTierSelection.LOCAL.value: "💻 Local Model",
+        ModelTierSelection.CLOUD.value: "☁️ Cloud Model"
+    }
+
+    return {
+        "default_chat_selection": ChatPathSelection.AUTO.value,
+        "default_model_selection": ModelTierSelection.AUTO.value,
+        "available_chat_paths": [
+            {"id": e.value, "label": mode_labels.get(e.value, e.value)} 
+            for e in ChatPathSelection
+        ],
+        "available_model_tiers": [
+            {"id": e.value, "label": model_labels.get(e.value, e.value)} 
+            for e in ModelTierSelection
+        ]
+    }
 
 @router.post("/chat")
 async def handle_chat_message_stream(req: ChatRequest):
-    """🚀 Upgraded: Streams token deltas and metrics directly without trace leakage."""
+    """Streams token deltas directly, handling client UI payload translation values cleanly."""
     
     initial_state = GlobalState(
         raw_user_query=req.message,
@@ -56,9 +78,6 @@ async def handle_chat_message_stream(req: ChatRequest):
 
                 # Case B: Conversational Token Streams Only
                 elif kind == "on_chat_model_stream":
-                    # 🟢 FILTER OUT STRUCTURAL NODES NATIVELY:
-                    # Only stream tokens from final conversational or research synthesis steps.
-                    # This prevents governance or routing JSON structures from leaking.
                     if active_node in ["fast_conversational", "execute_research_subgraph", "synthesize_research"]:
                         token_chunk = event["data"].get("chunk")
                         if token_chunk and token_chunk.content:
@@ -68,7 +87,8 @@ async def handle_chat_message_stream(req: ChatRequest):
             
         except Exception as graph_err:
             logger.error(f"Streaming sequence error: {graph_err}")
-            yield f"data: {json.dumps({'type': 'error', 'detail': str(graph_err)})}\n\n"
+            # FIXED: Changed key from 'detail' to 'reply' to match frontend structural expectations
+            yield f"data: {json.dumps({'type': 'error', 'reply': f'💥 Processing Pipeline Fault: {str(graph_err)}'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

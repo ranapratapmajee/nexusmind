@@ -12,14 +12,15 @@ from langgraph.graph.message import add_messages
 # =========================================================================
 
 class ChatPathSelection(str, Enum):
+    AUTO = "AUTO"
     NEXA_CHAT = "NEXA_CHAT"
     RESEARCH = "RESEARCH"
-    AUTO = "AUTO"
 
 class ModelTierSelection(str, Enum):
+    AUTO = "AUTO"
     LOCAL = "LOCAL"
     CLOUD = "CLOUD"
-    AUTO = "AUTO"
+
 
 # =========================================================================
 # 🧠 2. STATE GRAPH SCHEMA STRUCTURE

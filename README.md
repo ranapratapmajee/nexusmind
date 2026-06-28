@@ -1,13 +1,13 @@
-# Nexa Mind 🧠
+# NexusMind 🧠
 
 Zero-Friction Technical Exploration, Grounded RAG, and Deep Analytics.
 
-Nexa Mind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance FastAPI gateway alongside a compiled, single-tiered native LangGraph Orchestration Network to route conversational prompts dynamically based on semantic complexity. By limiting front-end configurations to two macro choices (✨ Nexa Chat and 🔬 Deep Research), the system automatically coordinates edge security filtering, PII data masking, automated path-routing intent classifications, multi-query expansions, and async background vector data loading cleanly on the backend. All inferences are routed dynamically using a unified user-controlled layout model selector (🤖 Auto, LOCAL, CLOUD).
+NexusMind is an enterprise-grade, high-density AI engineering assistant platform. It leverages a high-performance FastAPI gateway alongside a compiled, single-tiered native LangGraph Orchestration Network to route conversational prompts dynamically based on semantic complexity. By leveraging a centralized, custom-engineered user interface mimicking premium modern workspaces (like Gemini), the interface strips out bloat and wraps messaging rows directly in zero-overhead HTML flex arrays. System controls are compressed into dual top-of-chatbox micro utilities managing the active conversation pipeline mode (🧠 Auto Orchestrate, ✨ Nexa Chat, 🔬 Deep Research) and the compute infrastructure runtime selector (🤖 Auto Model, LOCAL, CLOUD) natively anchored inside a single compact boundary footprint.
 
 ------------------------------
 
 ## 🏗️ Technical System Architecture
-Nexa Mind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive Streamlit user interface canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
+NexusMind is engineered as a decoupled, multi-tier runtime system. The interaction between the responsive, avatar-free Streamlit custom presentation canvas, the FastAPI communication routing layer, the compiled LangGraph execution topologies, and the underlying multi-provider model gateways is structured as a decoupled multi-tier architecture:
 
 ```mermaid
 graph TD
@@ -19,11 +19,11 @@ graph TD
 
     %% Presentation Layer
     subgraph Streamlit_Frontend [Streamlit Presentation Workspace :8501]
-        UI[Canvas Layout: streamlit_app.py]
-        Composer[Control Matrix: composer_ui.py]
-        Console[APM Visualizer: trace_ui.py]
+        UI[Canvas Overrides: inject_minimal_overrides]
+        Bubble[Custom DOM Renderer: render_message_bubble]
+        Selectors[Modular Utilities: Mode & Model selectbox]
     end
-    class UI,Composer,Console ui;
+    class UI,Bubble,Selectors ui;
 
     %% Communication Gateway Layer
     subgraph FastAPI_Backend [FastAPI Application Gateway :8001]
@@ -57,8 +57,8 @@ graph TD
     class OllamaCompletions,ChromaDB,WebScrape,GeminiCloud infra;
 
     %% Data Pipeline Interaction Lines
-    UI -->|1. Submit User Query| Composer
-    Composer -->|2. HTTP POST Payload ChatRequest| Router
+    UI -->|1. Loop Custom Component Matrix| Bubble
+    Selectors -->|2. Inject Global Config States| Router
     Router -->|3. Initialize GlobalState & .astream_events| CoreGraph
     
     CoreGraph --> GovNode
@@ -78,12 +78,11 @@ graph TD
     SynthNode -->|8. Grounded Context Model Call| GeminiCloud
     
     %% Response Aggregation and Real-Time SSE Wire Output
-    FastNode -->|9a. Yield Real-Time Text Token Chunk| Router
-    SynthNode -->|9b. Yield Real-Time Text Token Chunk| Router
-    RouteNode -->|9c. Yield Live Trace Telemetry Object| Router
+    FastNode -->|9a. Append Native HTML Streaming Matrix| Router
+    SynthNode -->|9b. Append Native HTML Streaming Matrix| Router
     
-    Router -->|10. Stream SSE Event Data Packets| Console
-    Console -->|11. Unpack & Render in Local empty Container| UI
+    Router -->|10. Stream SSE Event Data Packets| UI
+
 ```
 
 ## 1. Unified Sequence Flow
@@ -101,7 +100,7 @@ sequenceDiagram
     participant GEM as Cloud Gemini Cloud API
 
     %% Conversational Loop
-    Dev->>ST: Submits Query (UI Inputs)
+    Dev->>ST: Submits Query (Capsule Chat Input)
     ST->>API: HTTP POST /api/chat (ChatRequest SSE Stream)
     API->>CG: astream_events(GlobalState)
     
@@ -113,7 +112,9 @@ sequenceDiagram
     alt Chat Path Triggered
         CG->>OL: Stream Chat completions chunk token loop
         OL-->>CG: Yields Text Token Delta Chunks
-    else Research Path Triggered
+    end
+    
+    alt Research Path Triggered
         CG->>SG: Cascades State down to Subgraph Node
         
         par Parallel Retrieval Matrix
@@ -130,8 +131,9 @@ sequenceDiagram
 
     CG->>CG: Calculates performance_metrics_ms values
     CG-->>API: Emits trace, metrics, and token SSE frames
-    API-->>ST: Streams data packet frames over text/event-stream
-    ST->>Dev: Renders real-time text in empty container & updates trace expander
+    API-->>ST: Streams data packets over event-stream
+    ST->>Dev: Appends to native .chat-row without layout shifting
+
 ```
 
 ## 2. Context Ingestion & Real-Time Background RAG Pipeline
@@ -177,17 +179,18 @@ graph TD
     end
 
     Chroma --> Log[✅ Log standard terminal confirmation metrics]
+
 ```
 
 ---
 
 ## 🚀 Key Architectural Pillars
 
-* **Single State Data Fabric (`GlobalState`)** — Eliminates asynchronous serialization deadlocks, memory pointer address reference leaks, and sync drift by unifying user queries, routing classifications, token-scrubbing parameters, and append-only trace objects into a type-safe Pydantic source of truth using LangGraph's native `operator.add` list reducer.
-* **Direct Graph Compilation Grid** — Replaces fragile external dynamic string loaders with hard-compiled explicit imports (`from app.graphs.research_graph import compiled_research_graph`). Subgraphs run natively inside parent nodes via direct invocations (`builder.add_node("execute_research_subgraph", compiled_research_graph)`).
+* **Avatar-Free Clean HTML Messaging DOM** — Circumvents the structural alignment constraints, ghost margins, and wide layout component stretching seen in typical Streamlit deployments by shifting rendering tasks into a lightweight component wrapper (`render_message_bubble`) using raw HTML flex vectors (`.chat-row`).
+* **Centralized Capsule Input Workspace** — Configures your application's focus area into a centered, $720\text{px}$ track capsule. Features subtle border shadows, text wrapping, and an integrated Inter typography stack to align perfectly with high-end, responsive system layout principles.
+* **Modular Single-Line Utility Track** — Isolates configuration dropdown models cleanly inside `st.bottom`. Uses a side-by-side flex block configuration that sits tightly aligned above the prompt capsule, with individual selectbox components handling their own layout sizing rules.
+* **Direct Graph Compilation Grid** — Replaces fragile external dynamic string loaders with hard-compiled explicit imports (`from app.graphs.research_graph import compiled_research_graph`). Subgraphs run natively inside parent nodes via direct activations.
 * **Token-Masking & Local Guardrail Interceptors** — Inspects string payloads at the application boundary through pre-compiled high-performance regular expressions to stop code injection variations while automatically scrubbing PII elements (SSN, credit card strings, IPv4 masks) into secure `[..._REDACTED]` blocks.
-* **Parallel Dual-Source Discovery Network** — Leverages a decoupled, isolated pipeline wrapper that concurrently pulls target text layers across multiple string transformations using local vector collections (ChromaDB) and off-thread public live web-scraping clusters.
-* **Asynchronous Embedded Concurrency** — Accelerates indexing procedures by leveraging Python `asyncio.gather` on local hardware resources to hit Ollama's embedded endpoint thread matrices in parallel batches of 100 rows.
 
 ---
 
@@ -223,7 +226,7 @@ nexusmind/
 │   │   ├── routes.py          # Pathway handlers, background tasks hooks, uploads
 │   │   └── schemas.py         # Request/Response validation models
 │   │
-│   ├── tools/                 # DATA DISCOVERY ISOLATED OPERATIONS Retrival Tools
+│   ├── tools/                 # DATA DISCOVERY ISOLATED OPERATIONS Retrieval Tools
 │   │   ├── chroma_search.py   # Vector collection index query utility retriever
 │   │   └── web_search.py      # Async live search scraper tool
 │   │
@@ -231,16 +234,7 @@ nexusmind/
 │       └── research_graph.py  # Source parsing, node loops, deep query synthesis
 │
 └── frontend/                  # STREAMLIT UI DEVELOPMENT WORKSPACE
-    ├── streamlit_app.py       # Main presentation layout center canvas loader
-    └── ui/                    # MODULAR FRONTEND GRAPHICS SYSTEM INTERFACES
-        ├── api_client.py      # Synchronized HTTP request broker layer
-        ├── chat_ui.py         # Conversational historical bubble layout blocks
-        ├── composer_ui.py     # Floating panel mode toggles and prompt input triggers
-        ├── formatters.py      # Dynamic icon string labeling system transforms
-        ├── sidebar_ui.py      # Control actions, settings trackers, upload bars
-        ├── state.py           # Streamlit Session State initialization registries
-        ├── styles.py          # Specialized high-density global layout CSS injections
-        └── trace_ui.py        # Monospaced APM execution trace component
+    └── streamlit_app.py       # Main presentation interface canvas utilizing the Inter sans font-stack
 
 ```
 
@@ -250,11 +244,11 @@ nexusmind/
 
 The orchestrator's router node maps pipeline execution pathways based on the layout configuration parameter context and input intent classification weights:
 
-| Front-End Selected Mode | Intent Heuristic Trigger | Execution Target Pipeline | Active LLM Allocation Model | Dynamic System Prompt Persona |
+| Selected Chat Mode | Component Selection Target | Execution Target Pipeline | Active LLM Allocation Model | Dynamic System Prompt Persona |
 | --- | --- | --- | --- | --- |
-| **✨ Nexa Chat** | Plain structural conversational input queries ($<4$ terms) | `fast_conversational` node pass | Local Ollama instance via `qwen2.5-coder:7b` | `standard_utility` utility interface prompt |
-| **✨ Nexa Chat** | High semantic density technical code queries | `fast_conversational` node pass | Local Ollama instance via `qwen2.5-coder:7b` | `standard_utility` utility interface prompt |
-| **🔬 Deep Research** | Explicit UI Pill Button Option Selected | Native sub-network `execute_research_subgraph` node | Cloud Google GenAI `gemini-2.5-flash` *(Ollama Fallback)* | Academically anchored `socratic_professor` layout prompt |
+| **🧠 Auto Orchestrate** | Modular `st.selectbox` left-rail utility | Automated router path classification pass | Evaluated dynamically based on query profile | Unified, semantic context system controller prompt |
+| **✨ Nexa Chat** | Modular `st.selectbox` left-rail utility | `fast_conversational` node pass | Local Ollama instance via `qwen2.5-coder:7b` | `standard_utility` utility interface prompt |
+| **🔬 Deep Research** | Modular `st.selectbox` left-rail utility | Native sub-network `execute_research_subgraph` node | Cloud Google GenAI `gemini-2.5-flash` *(Ollama Fallback)* | Academically anchored `socratic_professor` layout prompt |
 
 ---
 
@@ -264,18 +258,19 @@ The orchestrator's router node maps pipeline execution pathways based on the lay
 
 * **Python Runtime:** Python 3.12+ managed through **`uv`** package manager tool.
 * **Local Inference Engine:** Ollama running locally with the requisite computational models active:
+
 ```bash
 ollama pull qwen2.5-coder:7b
 ollama pull nomic-embed-text
 
 ```
 
-
 * **Virtualization Cluster Container Runtime:** Docker Desktop running locally on the host hardware machine.
 
 ### Deployment Operations Boot Sequence
 
 1. **Configure Local Variables Configuration Environment** Generate an active configuration `.env` file directly inside the target project root folder path directory:
+
 ```env
 # path: .env
 APP_ENV=development
@@ -292,51 +287,22 @@ OFFLINE_PDF_DIR=./data
 
 ```
 
-
 2. **Launch the Single-Harness Control Shell Runner Script** The system includes an enterprise shell deployment harness that verifies package locks via `uv`, runs validations against local Docker Desktop infrastructure, builds database mount registers, mounts the background model daemons, launches services, and binds graceful cleanup triggers:
+
 ```bash
 # Add execution parameters permissions to the script file
 chmod +x run_nexusmind.sh
 
-# Fire the active runtime sequence orchestration script
+# Fire the active runtime sequence orchestration shell script
 ./run_nexusmind.sh
 
 ```
 
-
 3. **Verify Host Port Mapping Handshakes**
+
 * **Streamlit UI Layout Platform Display Canvas:** `http://localhost:8501`
 * **FastAPI Backend Core Engine REST APIs Swagger docs:** `http://localhost:8001/docs`
 * **ChromaDB Docker Sandbox Endpoint:** `http://localhost:8000`
-
-
-
----
-
-## ⚙️ Real-Time Telemetry Performance Monitoring
-
-The Streamlit web container renders custom execution trace nodes instantly. This format maps directly to your Pydantic channel arrays, offering clear visibility into system latency:
-
-```text
-⚙️ TRACE | RESEARCH | 3142ms
-📡 PLATFORM ENGINE  ::  [ROUTE: RESEARCH]
-🐳 INFRASTRUCTURE   ::  [VIRTUALIZATION: Docker Desktop Engine Runtime]
-🗄️ VECTOR STORE     ::  [ENGINE: ChromaDB Container Cluster]
-🧠 LOGICAL COMPUTE  ::  [TIER: HIGH (Cloud Scale)]
-
-⛓️ PIPELINE CHRONOLOGICAL FLOW DIAGRAM
- ├── 🟢 [1] Security Check Engine ──> [Input governance verification clear.]
- ├── 🟢 [2] Intent Router (HIGH) ──> [Allocated Target Pipeline Matrix: [RESEARCH]]
- ├── 🟢 [3] Research Core ──> [Invoking atomic search tools across variations.]
- ├── 🟢 [4] ChromaDB Engine ──> [Grounding match confirmed across vectors (Dist: 0.28)]
- ├── 🟢 [5] Web Scraper ──> [Executing live web lookup fallback transformations.]
- ├── 🟢 [6] Synthesis Engine ──> [Generating response via [gemini-2.5-flash].]
- └── 🏁 Research Core ──> [Deep analysis complete.] (3142ms)
-
-📚 DATA RECOVERY SUBSYSTEM
- └── [SOURCES LOADED: 4] [RETRIEVAL COMPUTE: 842ms]
-
-```
 
 ---
 
