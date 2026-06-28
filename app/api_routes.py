@@ -67,7 +67,7 @@ async def handle_chat_message_stream(req: ChatRequest):
                 
                 # 1. Catch live streaming tokens from generation paths
                 if kind == "on_chat_model_stream":
-                    if active_node in ["fast_conversational", "execute_research_subgraph", "synthesize_research"]:
+                    if active_node in ["fast_conversational", "execute_research_subgraph", "research_synthesize"]:
                         token_chunk = event["data"].get("chunk")
                         if token_chunk and token_chunk.content:
                             reply_streamed = True

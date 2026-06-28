@@ -12,12 +12,22 @@ from app.llm_gateway import get_model_by_tier
 from app.tools.chroma_search import search_local_vectorbase
 from app.tools.web_search import search_live_web
 
-# Obtain the exact logger mapping matching your project structure
 logger = logging.getLogger("nexusmind.research_graph")
 
 # =========================================================================
 # 📝 CENTRALIZED PROMPT LAYOUT SECTION
 # =========================================================================
+
+PROMPT_CLEANSE = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are an expert context optimization engine inside NexusMind.\n"
+        "Your task is to take the raw retrieved text materials and strip out all generic filler, "
+        "high-level introductions, and conversational fluff.\n\n"
+        "Rewrite the text to retain ONLY concrete architectural specifications, metrics, "
+        "hardware configurations, schemas, and direct system design patterns relevant to the query."
+    )),
+    ("human", "User Query: {query}\n\nRaw Materials:\n{raw_text}")
+])
 
 PROMPT_SYNTHESIS = ChatPromptTemplate.from_messages([
     ("system", (
@@ -46,43 +56,33 @@ PROMPT_SYNTHESIS = ChatPromptTemplate.from_messages([
 # 🎛️ RESEARCH GRAPH NODES
 # =========================================================================
 
-async def gather_sources_node(state: GlobalState) -> Dict[str, Any]:
-    """Node: Aggregates local vector chunks and live web lookups dynamically."""
+async def research_fetch_node(state: GlobalState) -> Dict[str, Any]:
+    """Node: Aggregates vector chunks/web results and simplifies them via LLM."""
     start_time = time.perf_counter()
-    
-    # Safely look for search term queries using your renamed forward_query fallback variable
     queries = state.pipeline_context.get("expanded_queries") or [state.forward_query]
     
-    logger.info("📡 [RESEARCH SUBGRAPH] Initializing Parallel Retrieval Matrix... 🔍 Processing Query Variations: {queries}")
+    logger.info(f"📡 [RESEARCH] Fetching and cleansing context matrix for: {queries}")
     
-    # 1. Execute local vector lookup
-    logger.info("   🗄️ Invoking ChromaDB Vector Store client...")
-    chunks, best_dist, has_grounding = await search_local_vectorbase(queries)
-    grounding_status = "confirmed" if has_grounding else "below threshold"
-    
-    logger.info(f"📥 [RESEARCH SUBGRAPH] ChromaDB Search Results: Retrieved {len(chunks)} chunks (Best Proximity Dist: {best_dist:.4f} -> Grounding: {grounding_status})")
-    
-    # 2. Execute dynamic web fallback based on vector certainty parameters
-    web_sources = []
-    triggered_web_search = False
-    
-    if not has_grounding or state.pipeline_context.get("force_deep_research", False):
-        triggered_web_search = True
-        logger.info("   🌐 Grounding below threshold or Deep Research active! Launching web search ...")
-        web_sources = await search_live_web(queries)
-        logger.info(f"📥 [RESEARCH SUBGRAPH] Web Search Results: Extracted {len(web_sources)} live web documents.")
-    else:
-        logger.info("   ⏭️ Vector context grounding secure. Skipping web search tool.")
+    # 1. Gather raw data from tools
+    chunks, _, has_grounding = await search_local_vectorbase(queries)
+    force_deep = state.pipeline_context.get("force_deep_research", False)
+    web_sources = await search_live_web(queries) if (not has_grounding or force_deep) else []
 
-    # 3. Print a clean summary matrix to your shell console
-    logger.info("   📊 FINAL DATA MATRIX RETRIEVAL SUMMARY:")
-    logger.info(f"      ├── ChromaDB Chunks Loaded : {len(chunks)}")
-    logger.info(f"      └── Web Scraper Loaded     : {len(web_sources)} (Triggered: {triggered_web_search})")
-
-    # Process strings into an unified reference body
+    # 2. Compile reference strings cleanly
     context_lines = [f"[LOCAL MATERIAL]\n{c.get('document', '')}" for c in chunks] + \
                     [f"[WEB SOURCE: {s['title']} | URL: {s['url']}]\n{s['content']}" for s in web_sources]
-    formatted_string = "\n\n---\n\n".join(context_lines)
+    raw_text_payload = "\n\n---\n\n".join(context_lines)
+
+    # 3. Use the LLM to simply cleanse the context
+    if raw_text_payload.strip():
+        model = get_model_by_tier(state.allocated_model_tier)
+        cleansed_response = await (PROMPT_CLEANSE | model).ainvoke({
+            "query": state.forward_query,
+            "raw_text": raw_text_payload
+        })
+        formatted_string = cleansed_response.content
+    else:
+        formatted_string = "No reference data loaded."
 
     ms = int((time.perf_counter() - start_time) * 1000)
     
@@ -94,32 +94,24 @@ async def gather_sources_node(state: GlobalState) -> Dict[str, Any]:
         },
         "performance_metrics_ms": {
             "research_gather_ms": ms,
-            "total_sources_found": len(chunks) + len(web_sources)
+            "total_sources_found": len(context_lines)
         },
         "messages": [
-            AIMessage(
-                content="", 
-                additional_kwargs={
-                    "status": "🔍", 
-                    "telemetry": f"Grounding {grounding_status}. Retrieved {len(chunks)} chunks and {len(web_sources)} web documents."
-                }
-            )
+            AIMessage(content="", additional_kwargs={"status": "🔍", "telemetry": f"LLM-Cleansed context payload prepared in {ms}ms."})
         ]
     }
 
 
-async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
-    """Node: Synthesizes gathered dataset into a citation-tracked technical reply via native streaming."""
+async def research_synthesize_node(state: GlobalState) -> Dict[str, Any]:
+    """Node: Streams target data through PROMPT_SYNTHESIS to generate final response."""
     start_time = time.perf_counter()
-    
     model = get_model_by_tier(state.allocated_model_tier)
     context_data = state.pipeline_context.get("formatted_context_string", "No reference data loaded.")
     
-    logger.info("🧠 [RESEARCH SUBGRAPH] Dispatching dataset to Synthesis Generation Node...")
+    logger.info("🧠 [RESEARCH] Generating response via streaming...")
     
     full_content = ""
     try:
-        # Loop over the stream chunks so LangGraph's event manager can broadcast them live
         async for chunk in (PROMPT_SYNTHESIS | model).astream({
             "context_string": context_data,
             "query": state.forward_query
@@ -127,12 +119,10 @@ async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
             if chunk.content:
                 full_content += chunk.content
     except Exception as e:
-        logger.error(f"❌ Synthesis token generation failed: {e}")
+        logger.error(f"❌ Synthesis sequence failure: {e}")
         full_content = f"❌ Technical synthesis processing sequence failed: {str(e)}"
 
     ms = int((time.perf_counter() - start_time) * 1000)
-    logger.info(f"✅ [RESEARCH SUBGRAPH] Synthesis generation complete in {ms}ms.")
-
     return {
         "final_assistant_reply": full_content,
         "performance_metrics_ms": {"research_synthesis_ms": ms},
@@ -144,11 +134,11 @@ async def synthesize_research_node(state: GlobalState) -> Dict[str, Any]:
 # =========================================================================
 
 builder = StateGraph(GlobalState)
-builder.add_node("gather_sources", gather_sources_node)
-builder.add_node("synthesize_research", synthesize_research_node)
+builder.add_node("research_fetch", research_fetch_node)
+builder.add_node("research_synthesize", research_synthesize_node)
 
-builder.add_edge(START, "gather_sources")
-builder.add_edge("gather_sources", "synthesize_research")
-builder.add_edge("synthesize_research", END)
+builder.add_edge(START, "research_fetch")
+builder.add_edge("research_fetch", "research_synthesize")
+builder.add_edge("research_synthesize", END)
 
 compiled_research_graph = builder.compile()
